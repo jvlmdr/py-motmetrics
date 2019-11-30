@@ -429,11 +429,11 @@ def init_standard_solvers():
     global available_solvers, default_solver, solver_map
 
     solvers = [
+        ('ortools', Solver(lsa_solve_ortools, ASSIGN, module='ortools')),
         ('lap', Solver(lsa_solve_lapjv, UNBAL, module='lap')),
+        ('lapsolver', Solver(lsa_solve_lapsolver, UNBAL, module='lapsolver')),
         ('scipy', Solver(lsa_solve_scipy, UNBAL, module='scipy')),
         ('munkres', Solver(lsa_solve_munkres, ASSIGN, module='munkres')),
-        ('ortools', Solver(lsa_solve_ortools, ASSIGN, module='ortools')),
-        ('lapsolver', Solver(lsa_solve_lapsolver, UNBAL, module='lapsolver')),
         ('greedy', Solver(mwm_solve_greedy, MIN_WEIGHT)),
     ]
 
