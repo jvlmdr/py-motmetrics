@@ -208,7 +208,7 @@ def linear_sum_assignment(costs, solver=None):
     cids = np.asarray(cids).astype(int)
     return rids, cids
 
-def replace_nan_with_large_constant(costs):
+def add_expensive_edges(costs):
     # The graph is probably already dense if we are doing this.
     assert isinstance(costs, np.ndarray)
     # The linear_sum_assignment function in scipy does not support missing edges.
@@ -217,6 +217,8 @@ def replace_nan_with_large_constant(costs):
     valid = _cost_is_edge(costs)
     if valid.all():
         return costs
+    if not valid.any():
+        return np.zeros_like(costs)
     r = min(costs.shape)
     # Assume all edges costs are within [-c, c], c >= 0.
     # The cost of an invalid edge must be such that...
@@ -235,7 +237,7 @@ def lsa_solve_scipy(costs):
     from scipy.optimize import linear_sum_assignment as scipy_solve
 
     costs = _as_dense(costs)
-    finite_costs = replace_nan_with_large_constant(costs)
+    finite_costs = add_expensive_edges(costs)
     rids, cids = scipy_solve(finite_costs)
     _assert_solution_is_feasible(costs, rids, cids)
     return rids, cids
@@ -378,7 +380,7 @@ def lsa_solve_lapjv(costs):
     from lap import lapjv
 
     costs = _as_dense(costs)
-    finite_costs = replace_nan_with_large_constant(costs)
+    finite_costs = add_expensive_edges(costs)
     row_to_col, _ = lapjv(finite_costs, return_cost=False, extend_cost=True)
     indices = np.array((range(costs.shape[0]), row_to_col), dtype=np.int64).T
     # Exclude unmatched rows (in case of unbalanced problem).

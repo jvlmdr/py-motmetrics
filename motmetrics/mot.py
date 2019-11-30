@@ -11,7 +11,7 @@ import numpy.ma as ma
 import pandas as pd
 from collections import OrderedDict
 from itertools import count
-from motmetrics.lap import linear_sum_assignment
+from motmetrics import lap
 
 class MOTAccumulator(object):
     """Manage tracking events.
@@ -203,7 +203,7 @@ class MOTAccumulator(object):
             dists[oids.mask, :] = np.nan
             dists[:, hids.mask] = np.nan
 
-            rids, cids = linear_sum_assignment(dists)
+            rids, cids = lap.linear_sum_assignment(lap.add_expensive_edges(dists))
 
             for i, j in zip(rids, cids):
                 if not np.isfinite(dists[i,j]):
