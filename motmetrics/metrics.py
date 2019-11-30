@@ -9,7 +9,7 @@ Toka make it faster
 from __future__ import division
 from collections import OrderedDict, Iterable
 from motmetrics.mot import MOTAccumulator
-from motmetrics.lap import linear_sum_assignment
+from motmetrics import lap
 import pandas as pd
 import numpy as np
 import inspect
@@ -501,9 +501,55 @@ def extract_counts_from_df_map(df):
     tps = dists.groupby(['OId', 'HId']).count().to_dict()
     return ocs, hcs, tps
 
-def id_global_assignment(df, ana = None):
+def id_global_assignment(df):
     """ID measures: Global min-cost assignment for ID measures."""
-    ocs, hcs, tps = extract_counts_from_df_map(df)
+    obj_counts, hyp_counts, tp_counts = extract_counts_from_df_map(df)
+
+    # fnmatrix, fpmatrix = make_fnmatrix_fpmatrix_dense(
+    #         obj_counts, hyp_counts, tp_counts)
+    # costs = fnmatrix + fpmatrix
+    # rids, cids = lap.linear_sum_assignment(costs)
+    # return {
+    #         'rids': rids,
+    #         'cids': cids,
+    #         'min_cost': costs[rids, cids].sum(),
+    #         'fn': fnmatrix[rids, cids].sum(),
+    #         'fp': fpmatrix[rids, cids].sum(),
+    # }
+
+    costs = make_negtp_sparse(obj_counts, hyp_counts, tp_counts)
+    rids, cids = lap.minimum_weight_matching(costs)
+    min_neg_tp = sum(costs[r, c] for r, c in zip(rids, cids))
+    fn = sum(obj_counts.values()) + min_neg_tp
+    fp = sum(hyp_counts.values()) + min_neg_tp
+    return {
+            'rids': rids,
+            'cids': cids,
+            'fn': fn,
+            'fp': fp,
+            'min_cost': fn + fp,
+    }
+
+def id_greedy_assignment(df):
+    """ID measures: Global min-cost assignment for ID measures."""
+    obj_counts, hyp_counts, tp_counts = extract_counts_from_df_map(df)
+    # For the greedy algorithm, there is no need to have a perfect matching.
+    costs = make_negtp_sparse(obj_counts, hyp_counts, tp_counts)
+    rids, cids = lap.minimum_weight_matching(costs, solver='greedy')
+    min_neg_tp = sum(costs[r, c] for r, c in zip(rids, cids))
+    fn = sum(obj_counts.values()) + min_neg_tp
+    fp = sum(hyp_counts.values()) + min_neg_tp
+    return {
+            # 'rids': rids,
+            # 'cids': cids,
+            'tp': -min_neg_tp,
+            'fn': fn,
+            'fp': fp,
+            'min_cost': fn + fp,
+    }
+
+def make_fnmatrix_fpmatrix_dense(ocs, hcs, tps):
+    """Returns matrix of actual costs."""
     oids = sorted(ocs.keys())
     hids = sorted(hcs.keys())
     oids_idx = dict((o, i) for i, o in enumerate(oids))
@@ -511,10 +557,10 @@ def id_global_assignment(df, ana = None):
     no = len(ocs)
     nh = len(hcs)
 
-    fpmatrix = np.full((no+nh, no+nh), 0.)
-    fnmatrix = np.full((no+nh, no+nh), 0.)
+    fpmatrix = np.full((no + nh, no + nh), 0.)
+    fnmatrix = np.full((no + nh, no + nh), 0.)
     fpmatrix[no:, :nh] = np.nan
-    fnmatrix[:no, nh:] = np.nan 
+    fnmatrix[:no, nh:] = np.nan
 
     for oid, oc in ocs.items():
         r = oids_idx[oid]
@@ -532,28 +578,41 @@ def id_global_assignment(df, ana = None):
         fpmatrix[r,c] -= ex
         fnmatrix[r,c] -= ex
 
-    costs = fpmatrix + fnmatrix    
-    rids, cids = linear_sum_assignment(costs)
+    return fnmatrix, fpmatrix
 
-    return {
-        'fpmatrix' : fpmatrix,
-        'fnmatrix' : fnmatrix,
-        'rids' : rids,
-        'cids' : cids,
-        'costs' : costs,
-        'min_cost' : costs[rids, cids].sum()
-    }
+def make_negtp_sparse(ocs, hcs, tps):
+    """Returns sparse matrix of negative count of true positives.
+
+    Element (i, j) is neg of number of matches between object i and hypothesis j.
+    If object i never matched with hypothesis j, element (i, j) is empty (nan).
+
+    Unlike the FN and FP matrices, the TP matrix is sparse. This improves the
+    efficiency of matching algorithms that depend on the number of edges.
+    The TP matrix is also better suited to a greedy algorithm.
+    """
+    oids = sorted(ocs.keys())
+    hids = sorted(hcs.keys())
+    oids_idx = dict((o, i) for i, o in enumerate(oids))
+    hids_idx = dict((h, i) for i, h in enumerate(hids))
+    no = len(ocs)
+    nh = len(hcs)
+
+    elems = {}
+    for (oid, hid), ex in tps.items():
+        if ex > 0:
+            r = oids_idx[oid]
+            c = hids_idx[hid]
+            elems[r, c] = -ex
+    return lap.SparseGraph((no, nh), elems)
 
 def idfp(df, id_global_assignment):
     """ID measures: Number of false positive matches after global min-cost matching."""
-    rids, cids = id_global_assignment['rids'], id_global_assignment['cids']
-    return id_global_assignment['fpmatrix'][rids, cids].sum()
+    return id_global_assignment['fp']
 simple_add_func.append(idfp)
 
 def idfn(df, id_global_assignment):
     """ID measures: Number of false negatives matches after global min-cost matching."""
-    rids, cids = id_global_assignment['rids'], id_global_assignment['cids']
-    return id_global_assignment['fnmatrix'][rids, cids].sum()
+    return id_global_assignment['fn']
 simple_add_func.append(idfn)
 
 def idtp(df, id_global_assignment, num_objects, idfn):
@@ -582,11 +641,37 @@ def idf1(df, idtp, num_objects, num_predictions):
 def idf1_m(partials, idtp, num_objects, num_predictions):
     return _qdiv(2 * idtp, num_objects + num_predictions)
 
-def _qdiv(a, b):
-    """Quiet divide function that does not warn about (0 / 0)."""
-    with warnings.catch_warnings():
-        warnings.simplefilter('ignore', RuntimeWarning)
-        return np.true_divide(a, b)
+def gr_idfp(df, id_greedy_assignment):
+    """ID measures: Number of false positive matches after greedy min-cost matching."""
+    return id_greedy_assignment['fp']
+simple_add_func.append(gr_idfp)
+
+def gr_idfn(df, id_greedy_assignment):
+    """ID measures: Number of false negatives matches after greedy min-cost matching."""
+    return id_greedy_assignment['fn']
+simple_add_func.append(gr_idfn)
+
+def gr_idtp(df, id_greedy_assignment, num_objects, gr_idfn):
+    """ID measures: Number of true positives matches after greedy min-cost matching."""
+    if num_objects - gr_idfn < 0:
+        import pdb; pdb.set_trace()
+    return num_objects - gr_idfn
+simple_add_func.append(gr_idtp)
+
+def gr_idp(df, gr_idtp, gr_idfp):
+    """ID measures: greedy min-cost precision."""
+    return _qdiv(gr_idtp, gr_idtp + gr_idfp)
+simple_add_func.append(gr_idp)
+
+def gr_idr(df, gr_idtp, gr_idfn):
+    """ID measures: greedy min-cost recall."""
+    return _qdiv(gr_idtp, gr_idtp + gr_idfn)
+simple_add_func.append(gr_idr)
+
+def gr_idf1(df, gr_idtp, num_objects, num_predictions):
+    """ID measures: greedy min-cost F1 score."""
+    return _qdiv(2 * gr_idtp, num_objects + num_predictions)
+simple_add_func.append(gr_idf1)
 
 # def iou_sum(df):
 #     """Extra measures: sum IoU of all matches"""
@@ -661,6 +746,14 @@ def create():
     m.register(idr, formatter='{:.1%}'.format)
     m.register(idf1, formatter='{:.1%}'.format)
 
+    m.register(id_greedy_assignment)
+    m.register(gr_idfp)
+    m.register(gr_idfn)
+    m.register(gr_idtp)
+    m.register(gr_idp, formatter='{:.1%}'.format)
+    m.register(gr_idr, formatter='{:.1%}'.format)
+    m.register(gr_idf1, formatter='{:.1%}'.format)
+
     # m.register(iou_sum, formatter='{:.3f}'.format)
     # m.register(siou_sum, formatter='{:.3f}'.format)
     # m.register(avg_iou, formatter='{:.3f}'.format)
@@ -690,3 +783,9 @@ motchallenge_metrics = [
     # 'switch_iou',
 ]
 """A list of all metrics from MOTChallenge."""
+
+def _qdiv(a, b):
+    """Quiet divide function that does not warn about (0 / 0)."""
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', RuntimeWarning)
+        return np.true_divide(a, b)

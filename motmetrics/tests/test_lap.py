@@ -17,6 +17,15 @@ def test_assign_full(solver):
     np.testing.assert_allclose(result, expected)
     np.testing.assert_allclose(costs, costs_copy)
 
+@pytest.mark.parametrize('solver', SOLVERS)
+def test_assign_empty(solver):
+    costs = np.array([[]])
+    costs_copy = costs.copy()
+    result = lap.linear_sum_assignment(costs, solver=solver)
+
+    np.testing.assert_equal(np.size(result), 0)
+    np.testing.assert_allclose(costs, costs_copy)
+
 # Note: The munkres solver hangs if the problem is infeasible.
 @pytest.mark.parametrize('solver', set(SOLVERS) - set(['munkres']))
 def test_assign_infeasible_raises(solver):

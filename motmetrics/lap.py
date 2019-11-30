@@ -257,6 +257,8 @@ def lsa_solve_munkres(costs):
     m = Munkres()
 
     costs = _as_dense(costs)
+    if not np.size(costs):
+        return [], []
     costs = costs.copy()
     inv = ~_cost_is_edge(costs)
     if inv.any():
@@ -380,6 +382,8 @@ def lsa_solve_lapjv(costs):
     from lap import lapjv
 
     costs = _as_dense(costs)
+    if not np.size(costs):
+        return [], []
     finite_costs = add_expensive_edges(costs)
     row_to_col, _ = lapjv(finite_costs, return_cost=False, extend_cost=True)
     indices = np.array((range(costs.shape[0]), row_to_col), dtype=np.int64).T
