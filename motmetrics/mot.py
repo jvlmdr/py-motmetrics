@@ -203,7 +203,8 @@ class MOTAccumulator(object):
             dists[oids.mask, :] = np.nan
             dists[:, hids.mask] = np.nan
 
-            rids, cids = lap.linear_sum_assignment(lap.add_expensive_edges(dists))
+            rids, cids = lap.unbalanced_linear_sum_assignment(
+                    lap.add_expensive_edges(dists))
 
             for i, j in zip(rids, cids):
                 if not np.isfinite(dists[i,j]):
