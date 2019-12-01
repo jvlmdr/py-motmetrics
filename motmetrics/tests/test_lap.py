@@ -26,8 +26,7 @@ def test_assign_empty(solver):
     np.testing.assert_equal(np.size(result), 0)
     np.testing.assert_allclose(costs, costs_copy)
 
-# Note: The munkres solver hangs if the problem is infeasible.
-@pytest.mark.parametrize('solver', set(SOLVERS) - set(['munkres']))
+@pytest.mark.parametrize('solver', SOLVERS)
 def test_assign_infeasible_raises(solver):
     costs = np.array([[np.nan, np.nan, 1], [np.nan, np.nan, 2], [8, 7, 4]])
     costs_copy = costs.copy()

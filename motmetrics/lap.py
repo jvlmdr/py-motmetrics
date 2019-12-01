@@ -216,7 +216,7 @@ def add_expensive_edges(costs):
     # If it is chosen, that means the problem was infeasible.
     valid = _cost_is_edge(costs)
     if valid.all():
-        return costs
+        return costs.copy()
     if not valid.any():
         return np.zeros_like(costs)
     r = min(costs.shape)
@@ -255,18 +255,16 @@ def lsa_solve_munkres(costs):
     """Solves the LSA problem using the Munkres library."""
     from munkres import Munkres, DISALLOWED
     m = Munkres()
-
     costs = _as_dense(costs)
     if not np.size(costs):
         return [], []
-    costs = costs.copy()
-    inv = ~_cost_is_edge(costs)
-    if inv.any():
-        costs = costs.astype(object)
-        costs[inv] = DISALLOWED       
-
-    indices = np.array(m.compute(costs), dtype=np.int64)
-    return indices[:,0], indices[:,1]
+    # The munkres package may hang if the problem is not feasible.
+    # Therefore, add expensive edges instead of using munkres.DISALLOWED.
+    finite_costs = add_expensive_edges(costs)
+    indices = np.array(m.compute(finite_costs), dtype=np.int64)
+    rids, cids = indices[:, 0], indices[:, 1]
+    _assert_solution_is_feasible(costs, rids, cids)
+    return rids, cids
 
 def lsa_solve_ortools(costs):
     """Solves the LSA problem using Google's optimization tools.
