@@ -79,9 +79,21 @@ def minimum_weight_matching(costs, solver=None):
     _assert_problem_is_valid(solver.problem)
     if solver.problem == MIN_WEIGHT:
         # Use the solver directly if it is a MIN_WEIGHT solver.
-        return solver(costs)
+        rids, cids = solver(costs)
+    else:
+        # Convert the problem to UNBAL.
+        rids, cids = _solve_min_weight_as_unbal(costs, solver=solver)
 
-    # Convert the problem to UNBAL.
+    matches = list(zip(rids, cids))
+    # Exclude edges with zero cost.
+    matches = [(i, j) for i, j in matches if costs[i, j] != 0]
+    # Sort indices before returning.
+    matches = sorted(matches)
+    rids, cids = zip(*matches) if matches else ([], [])
+    return rids, cids
+
+def _solve_min_weight_as_unbal(costs, solver=None):
+    """Result is not sorted."""
     # Add vertices with zero-weight edges to the larger set
     # to ensure that a perfect one-sided matching exists.
     # The problem will be unbalanced since we add nodes to the larger set.
@@ -94,14 +106,15 @@ def minimum_weight_matching(costs, solver=None):
     len_x, len_y = costs.shape
 
     lsa_shape = (len_x, len_y + len_x)
-    # Copy all edges.
     if isinstance(costs, SparseGraph):
+        # Copy all edges.
         elems = dict(costs.elems)
         # Add new edges with zero weight.
         for i in range(len_x):
             elems[i, len_y + i] = 0
         lsa_costs = SparseGraph(lsa_shape, elems)
     elif isinstance(costs, np.ndarray):
+        # Same operation for dense ararys.
         lsa_costs = np.full(lsa_shape, np.nan)
         lsa_costs[:, :len_y] = costs
         np.fill_diagonal(lsa_costs[:, len_y:], 0)
@@ -138,9 +151,19 @@ def unbalanced_linear_sum_assignment(costs, solver=None):
     _assert_problem_is_valid(solver.problem)
     if solver.problem == UNBAL:
         # Use the solver directly if it is an UNBAL solver.
-        return solver(costs)
-    # Otherwise convert to ASSIGN...
+        rids, cids = solver(costs)
+    else:
+        # Otherwise convert to ASSIGN.
+        rids, cids = _solve_unbal_as_assign(costs, solver)
 
+    matches = list(zip(rids, cids))
+    # Sort indices before returning.
+    matches = sorted(matches)
+    rids, cids = zip(*matches) if matches else ([], [])
+    return rids, cids
+
+def _solve_unbal_as_assign(costs, solver):
+    """Result is not sorted."""
     # Ensure that the first set is the small one.
     use_transpose = (costs.shape[0] > costs.shape[1])
     if use_transpose:
@@ -149,15 +172,15 @@ def unbalanced_linear_sum_assignment(costs, solver=None):
     len_x, len_y = costs.shape
 
     bal_shape = (len_x + len_y, len_y + len_x)
-    # For the set V, partition nodes [0, len_x), len_x + [0, len_y).
-    # For the set V', partition nodes [0, len_y), len_y + [0, len_x).
+    # For the set V, partition into X = [0, len_x) and Y = len_x + [0, len_y).
+    # For the set V', partition into Y' = [0, len_y) and X' = len_y + [0, len_x).
     if isinstance(costs, SparseGraph):
-        # Start with original set of edges (V, i), (V', j).
+        # Start with original set of edges (X, i), (Y', j).
         elems = dict(costs.elems)
-        # Add duplicate edges (V, j), (V', i)
+        # Add duplicate edges (Y, j), (X', i)
         for (i, j), cost in costs.elems.items():
             elems[len_x + j, len_y + i] = cost
-        # Add zero-cost edges for large-to-large connections (V, j), (V', j).
+        # Add zero-cost edges for large-to-large connections (Y, j), (Y', j).
         for j in range(len_y):
             elems[len_x + j, j] = 0
         bal_costs = SparseGraph(bal_shape, elems)
@@ -171,6 +194,7 @@ def unbalanced_linear_sum_assignment(costs, solver=None):
 
     bal_rids, bal_cids = linear_sum_assignment(bal_costs, solver=solver)
 
+    # Take subset of edges in X and Y'.
     matches = [
             (i, j) for i, j in zip(bal_rids, bal_cids) if i < len_x and j < len_y
     ]
