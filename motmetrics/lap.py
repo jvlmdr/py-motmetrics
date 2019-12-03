@@ -171,6 +171,8 @@ def _solve_unbal_as_assign(costs, solver):
         costs = costs.transpose()
     len_x, len_y = costs.shape
 
+    # TODO: Different method for dense matrices?
+
     bal_shape = (len_x + len_y, len_y + len_x)
     # For the set V, partition into X = [0, len_x) and Y = len_x + [0, len_y).
     # For the set V', partition into Y' = [0, len_y) and X' = len_y + [0, len_x).
@@ -285,7 +287,7 @@ def lsa_solve_munkres(costs):
     # The munkres package may hang if the problem is not feasible.
     # Therefore, add expensive edges instead of using munkres.DISALLOWED.
     finite_costs = add_expensive_edges(costs)
-    indices = np.array(m.compute(finite_costs), dtype=np.int64)
+    indices = np.array(m.compute(finite_costs), dtype=np.int)
     rids, cids = indices[:, 0], indices[:, 1]
     _assert_solution_is_feasible(costs, rids, cids)
     return rids, cids
@@ -298,27 +300,13 @@ def lsa_solve_ortools(costs):
     """
     from ortools.graph import pywrapgraph
 
-    # Google OR tools only support integer costs. Here's our attempt
-    # to convert from floating point to integer:
-    #
-    # We search for the minimum difference between any two costs and
-    # compute the first non-zero digit after the decimal place. Then
-    # we compute a factor,f, that scales all costs so that the difference
-    # is integer representable in the first digit.
-    # 
-    # Example: min-diff is 0.001, then first non-zero digit place -3, so
-    # we scale by 1e3.
-    #
-    # For small min-diffs and large costs in general there is a change of
-    # overflowing.
-
     costs = _as_sparse(costs)
     cost_values = np.array(list(costs.elems.values()))
     scale = find_scale_for_integer_approximation(cost_values)
 
     assignment = pywrapgraph.LinearSumAssignment()
     for (r, c), cost in costs.elems.items():
-        # OR-Tools does not like to receive type np.int64.
+        # OR-Tools does not like to receive types like np.int64.
         if isinstance(r, np.generic):
             r = r.item()
         if isinstance(c, np.generic):
@@ -331,6 +319,20 @@ def lsa_solve_ortools(costs):
     return _ortools_extract_solution(assignment)
 
 def find_scale_for_integer_approximation(costs, base=10, log_max_scale=8, log_safety=2):
+    # Google OR tools only support integer costs. Here's our attempt
+    # to convert from floating point to integer:
+    #
+    # We search for the minimum difference between any two costs and
+    # compute the first non-zero digit after the decimal place. Then
+    # we compute a factor that scales all costs so that the difference
+    # is integer representable in the first digit.
+    #
+    # Example: min-diff is 0.001, then first non-zero digit place -3, so
+    # we scale by 1e3.
+    #
+    # For small min-diffs and large costs in general there is a change of
+    # overflowing.
+
     costs = np.asarray(costs)
     costs = costs[np.isfinite(costs)]  # Exclude non-edges (nan, inf) and -inf.
     if np.size(costs) == 0:
@@ -387,13 +389,13 @@ def _ortools_assert_is_optimal(pywrapgraph, status):
 
 def _ortools_extract_solution(assignment):
     if assignment.NumNodes() == 0:
-        return np.array([], dtype=np.int64), np.array([], dtype=np.int64)
+        return [], []
 
     pairings = []
     for i in range(assignment.NumNodes()):
         pairings.append([i, assignment.RightMate(i)])
 
-    indices = np.array(pairings, dtype=np.int64)
+    indices = np.array(pairings, dtype=np.int)
     return indices[:, 0], indices[:, 1]
 
 def _assert_solution_is_feasible(costs, rids, cids):
@@ -413,13 +415,50 @@ def lsa_solve_lapjv(costs):
         return [], []
     finite_costs = add_expensive_edges(costs)
     row_to_col, _ = lapjv(finite_costs, return_cost=False, extend_cost=True)
-    indices = np.array((range(costs.shape[0]), row_to_col), dtype=np.int64).T
+    indices = np.array([np.arange(costs.shape[0]), row_to_col], dtype=np.int).T
     # Exclude unmatched rows (in case of unbalanced problem).
     indices = indices[indices[:, 1] != -1]
-    rids, cids = indices[:,0], indices[:,1]
+    rids, cids = indices[:, 0], indices[:, 1]
     # Ensure that no missing edges were chosen.
     _assert_solution_is_feasible(costs, rids, cids)
     return rids, cids
+
+def lsa_solve_lapmod(costs):
+    from lap import lapmod
+
+    costs = _as_sparse(costs)
+    if len(costs.elems) == 0:
+        return [], []
+    num_rows, cc, ii, kk = _sparse_to_lapmod(costs)
+    # Ensure that costs are non-negative.
+    cc = cc + max(0, -cc.min())
+    _, row_to_col, _ = lapmod(num_rows, cc, ii, kk)
+
+    indices = np.array([np.arange(costs.shape[0]), row_to_col], dtype=np.int).T
+    # Exclude unmatched rows (in case of unbalanced problem).
+    indices = indices[indices[:, 1] != -1]
+    rids, cids = indices[:, 0], indices[:, 1]
+    # Ensure that no missing edges were chosen.
+    _assert_solution_is_feasible(costs, rids, cids)
+    return rids, cids
+
+def _sparse_to_lapmod(costs):
+    num_rows, num_cols = costs.shape
+    by_row = {i: {} for i in range(num_rows)}
+    for (i, j), v in costs.elems.items():
+        by_row[i][j] = v
+    num_per_row = [len(by_row[i]) for i in range(num_rows)]
+    ii = np.cumsum([0] + num_per_row)
+
+    cc = []
+    kk = []
+    for i in range(num_rows):
+        for j, v in sorted(by_row[i].items()):
+            cc.append(v)
+            kk.append(j)
+    cc = np.array(cc)
+    kk = np.array(kk, np.int)
+    return num_rows, cc, ii, kk
 
 def mwm_solve_greedy(costs):
     """Solves the Minimum-Weight Matching problem using a greedy approach.
@@ -458,6 +497,7 @@ def init_standard_solvers():
     solvers = [
         ('ortools', Solver(lsa_solve_ortools, ASSIGN, module='ortools')),
         ('lap', Solver(lsa_solve_lapjv, UNBAL, module='lap')),
+        ('lapmod', Solver(lsa_solve_lapmod, ASSIGN, module='lap')),
         ('lapsolver', Solver(lsa_solve_lapsolver, UNBAL, module='lapsolver')),
         ('scipy', Solver(lsa_solve_scipy, UNBAL, module='scipy')),
         ('munkres', Solver(lsa_solve_munkres, ASSIGN, module='munkres')),

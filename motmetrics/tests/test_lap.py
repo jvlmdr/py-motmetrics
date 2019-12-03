@@ -3,9 +3,9 @@ import itertools
 import numpy as np
 import motmetrics.lap as lap
 
-SOLVERS = ['ortools', 'scipy', 'munkres', 'lap', 'lapsolver']
+SOLVERS = ['ortools', 'scipy', 'munkres', 'lap', 'lapmod', 'lapsolver']
 SLOW_SOLVERS = ['scipy', 'munkres']
-SPARSE_SOLVERS = ['ortools']
+SPARSE_SOLVERS = ['ortools', 'lapmod']
 
 @pytest.mark.parametrize('solver', SOLVERS)
 def test_assign_easy(solver):
