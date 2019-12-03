@@ -314,11 +314,15 @@ def lsa_solve_ortools(costs):
 
     costs = _as_sparse(costs)
     cost_values = np.array(list(costs.elems.values()))
-    log10_scale = find_scale_for_integer_approximation(cost_values)
-    scale = 10 ** log10_scale
+    scale = find_scale_for_integer_approximation(cost_values)
 
     assignment = pywrapgraph.LinearSumAssignment()
     for (r, c), cost in costs.elems.items():
+        # OR-Tools does not like to receive type np.int64.
+        if isinstance(r, np.generic):
+            r = r.item()
+        if isinstance(c, np.generic):
+            c = c.item()
         int_cost = np.round(scale * cost).astype(int).item()
         assignment.AddArcWithCost(r, c, int_cost)
 
@@ -326,44 +330,45 @@ def lsa_solve_ortools(costs):
     _ortools_assert_is_optimal(pywrapgraph, status)
     return _ortools_extract_solution(assignment)
 
-def find_scale_for_integer_approximation(costs, max_log10_scale=8, log10_safety=2):
+def find_scale_for_integer_approximation(costs, base=10, log_max_scale=8, log_safety=2):
     costs = np.asarray(costs)
     costs = costs[np.isfinite(costs)]  # Exclude non-edges (nan, inf) and -inf.
     if np.size(costs) == 0:
         # No edges with numeric value. Scale does not matter.
-        return 0
+        return 1
     unique = np.unique(costs)
     if np.size(unique) == 1:
         # All costs have equal values. Scale does not matter.
-        return 0
+        return 1
     try:
         _assert_integer(costs)
     except AssertionError:
         pass
     else:
         # The costs are already integers.
-        return 0
+        return 1
 
     # TODO: Suppress this warning if the approximation is exact?
     # That is, if np.round(scale * costs) == scale * costs.
     logging.warning('costs are not integers; using approximation')
-    # Find scale = 10 ** e such that:
+    # Find scale = base ** e such that:
     # 1 / scale <= tol, or
     # e = log(scale) >= -log(tol)
     # where tol = min(diff(unique(costs)))
     min_diff = np.diff(unique).min()
-    e = np.ceil(np.log10(min_diff)).astype(int).item()
+    e = np.ceil(np.log(min_diff) / np.log(base)).astype(int).item()
     # Add optional non-negative safety factor to reduce quantization noise.
-    e += max(log10_safety, 0)
+    e += max(log_safety, 0)
     # Ensure that we do not reduce the magnitude of the costs.
     e = max(e, 0)
     # Ensure that the scale is not too large.
-    if e > max_log10_scale:
+    if e > log_max_scale:
         logging.warning('could not achieve desired resolution for approximation: '
-                        'want 10 ** %d but max is 10 ** %d', e, max_log10_scale)
-        e = max_log10_scale
-    # TODO: Check that costs * 10 ** e does not cause overflow.
-    return e
+                        'want exponent %d but max is %d', e, log_max_scale)
+        e = log_max_scale
+    scale = base ** e
+    # TODO: Check that costs * scale does not cause overflow.
+    return scale
 
 def _assert_integer(costs):
     # Check that costs are not changed by rounding.
