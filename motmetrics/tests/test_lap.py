@@ -3,7 +3,7 @@ import itertools
 import numpy as np
 import motmetrics.lap as lap
 
-SOLVERS = ['ortools', 'scipy', 'munkres', 'lap', 'lapmod', 'lapsolver']
+SOLVERS = ['scipy', 'munkres', 'ortools', 'lap', 'lapmod', 'lapsolver']
 SLOW_SOLVERS = ['scipy', 'munkres']
 SPARSE_SOLVERS = ['ortools', 'lapmod']
 
@@ -53,10 +53,14 @@ def test_assign_empty(solver):
 @pytest.mark.parametrize('solver', SOLVERS)
 def test_assign_infeasible_raises(solver):
     costs = np.asfarray([[np.nan, np.nan, 1], [np.nan, np.nan, 2], [8, 7, 4]])
-    costs_copy = costs.copy()
-    with pytest.raises(Exception):
-        result = lap.linear_sum_assignment(costs, solver=solver)
-        print(result)
+    with pytest.raises(AssertionError):
+        lap.linear_sum_assignment(costs, solver=solver)
+
+@pytest.mark.parametrize('solver', SOLVERS)
+def test_assign_unbalanced_raises(solver):
+    costs = np.zeros((3, 4))
+    with pytest.raises(AssertionError):
+        lap.linear_sum_assignment(costs, solver=solver)
 
 @pytest.mark.parametrize('solver', SOLVERS)
 def test_assign_disallowed(solver):
@@ -166,10 +170,8 @@ def test_unbalanced_infeasible_raises(solver):
                          [np.nan, np.nan, 2],
                          [np.nan, np.nan, 3],
                          [8, 7, 4]])
-    costs_copy = costs.copy()
-    with pytest.raises(Exception):
-        result = lap.unbalanced(costs, solver=solver)
-        print(result)
+    with pytest.raises(AssertionError):
+        lap.unbalanced_linear_sum_assignment(costs, solver=solver)
 
 @pytest.mark.parametrize('solver', SOLVERS + ['greedy'])
 def test_min_weight_negative_easy(solver):

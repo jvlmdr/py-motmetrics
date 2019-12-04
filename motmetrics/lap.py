@@ -1,15 +1,15 @@
 """Algorithms for solving assignment problems.
 
 The package supports three problems:
-    Minimum weight matching (MIN_WEIGHT)
-    Unbalanced assignment (UNBAL)
-    Assignment (ASSIGN)
+    minimum_weight_matching (MIN_WEIGHT)
+    unbalanced_linear_sum_assignment (UNBAL)
+    linear_sum_assignment (ASSIGN)
 
 MIN_WEIGHT: Arbitrary matching between sets of different sizes.
-UNBAL: Perfect matching between two sets of different sizes.
+UNBAL: One-sided perfect matching between two sets of different sizes.
 ASSIGN: Perfect matching between two sets of equal sizes.
 
-Clearly UNBAL is a superset of ASSIGN.
+UNBAL is a superset of ASSIGN.
 Most packages solve ASSIGN, but some support UNBAL.
 
 MIN_WEIGHT can be transformed into an UNBAL problem.
@@ -32,7 +32,6 @@ The costs matrix can always be specified using np.ndarray or lap.SparseGraph.
 
 import numpy as np
 from contextlib import contextmanager
-import logging
 import six
 import warnings
 
@@ -41,10 +40,20 @@ UNBAL = 'unbal'
 MIN_WEIGHT = 'min_weight'
 
 class Solver(object):
+    """Adds metadata to function for solving assigment problems."""
 
     def __init__(self, fn, problem, module=None):
+        """Creates a solver object.
+
+        Args:
+            fn: Function that maps costs (np.ndarray or lap.SparseGraph)
+                to matches describes as tuple (rids, cids).
+            problem: {ASSIGN, UNBAL, MIN_WEIGHT}
+            module: If this module can be imported, the solver is available
+                (string or None).
+        """
         self.fn = fn
-        self.problem = problem  # in {ASSIGN, UNBAL, MIN_WEIGHT}
+        self.problem = problem
         self.module = module
 
     def __call__(self, costs, **kwargs):
@@ -60,19 +69,23 @@ def _cost_is_edge(cost):
     return ~(np.isnan(cost) | np.equal(cost, np.inf))
 
 def minimum_weight_matching(costs, solver=None):
-    """Solves the Minimum-Weight Matching (MWM) problem.
+    """Solves the minimum-weight matching (MIN_WEIGHT) problem.
 
     Finds the matching between two sets with the minimum cost. Unlike the problem
-    of Linear Sum Assignment (LSA), some vertices may remain unmatched.
+    of linear sum assignment (ASSIGN), some vertices may remain unmatched.
     See: https://www.hpl.hp.com/techreports/2012/HPL-2012-40R1.pdf (sec 1.6)
 
     Args:
         costs: Either np.ndarray or lap.SparseGraph.
 
     Let r be min(costs.shape), n = max(costs.shape) and m be the number of edges.
-    It is converted into UNBAL with size r' = r, n' = n + r and m' = m + r edges.
-    This is converted into ASSIGN with size r'' = n'' = n + 2 r and
-    m'' = 2 m' + n' = 2 (m + r) + (n + r) = 2 m + n + 3 r.
+    It is converted into UNBAL with size:
+        r' = r
+        n' = n + r
+        m' = m + r
+    This may subsequently be converted into ASSIGN with size
+        r'' = n'' = n + 2 r
+        m'' = 2 m + n + 3 r
     These sizes are linear in the original dimensions.
     """
     solver = _get_solver(solver)
@@ -93,15 +106,18 @@ def minimum_weight_matching(costs, solver=None):
     return rids, cids
 
 def _solve_min_weight_as_unbal(costs, solver=None):
-    """Result is not sorted."""
-    # Add vertices with zero-weight edges to the larger set
-    # to ensure that a perfect one-sided matching exists.
-    # The problem will be unbalanced since we add nodes to the larger set.
+    """Converts MIN_WEIGHT into UNBAL and solves it.
 
+    Let r be the size of the smaller set X and n be that of the larger set Y.
+    For each node in X, add a zero-weight edge to a new node in set Y.
+    For each node in X, we can choose this edge or an existing edge.
+    The problem will be unbalanced since we add nodes to the larger set.
+
+    Note: Result is not sorted.
+    """
     # Ensure that the first set is the small one.
     use_transpose = (costs.shape[0] > costs.shape[1])
     if use_transpose:
-        logging.info('transpose matrix: shape %s', costs.shape)
         costs = costs.transpose()
     len_x, len_y = costs.shape
 
@@ -123,9 +139,9 @@ def _solve_min_weight_as_unbal(costs, solver=None):
 
     lsa_rids, lsa_cids = unbalanced_linear_sum_assignment(
             lsa_costs, solver=solver)
-
     # Select subset of matches (i, j) where j is within Y.
     matches = [(i, j) for i, j in zip(lsa_rids, lsa_cids) if j < len_y]
+
     rids, cids = zip(*matches) if matches else ([], [])
     if use_transpose:
         rids, cids = cids, rids
@@ -142,7 +158,9 @@ def unbalanced_linear_sum_assignment(costs, solver=None):
 
     Let r be min(costs.shape), n = max(costs.shape) and m be the number of edges.
     If the solver is not an UNBAL solver, then the problem is converted into ASSIGN with
-    It may be converted into ASSIGN with size r' = n' = n + r and m' = 2 m + n.
+        r' = n' = n + r
+        m' = 2 m + n
+    The problem size remains linear in the input size.
 
     Args:
         costs: Either np.ndarray or lap.SparseGraph.
@@ -163,19 +181,27 @@ def unbalanced_linear_sum_assignment(costs, solver=None):
     return rids, cids
 
 def _solve_unbal_as_assign(costs, solver):
-    """Result is not sorted."""
+    """Converts UNBAL into ASSIGN and solves it.
+
+    Construct a new problem with two sets V and V' of size (n + r).
+    Partition V into X = [0, len_x) and Y = len_x + [0, len_y).
+    Partition V' into Y' = [0, len_y) and X' = len_y + [0, len_x).
+    See: https://www.hpl.hp.com/techreports/2012/HPL-2012-40R1.pdf (sec 1.3)
+
+    Note: Result is not sorted.
+    """
     # Ensure that the first set is the small one.
     use_transpose = (costs.shape[0] > costs.shape[1])
     if use_transpose:
-        logging.info('transpose matrix: shape %s', costs.shape)
         costs = costs.transpose()
     len_x, len_y = costs.shape
 
     # TODO: Different method for dense matrices?
+    # When using a dense method to solve a problem of size [r, n], is it better
+    # to (a) pad to [n, n] with zeros or (b) construct [n + r, n + r] problem.
+    # Dense methods may still have complexity depending on number of edges?
 
     bal_shape = (len_x + len_y, len_y + len_x)
-    # For the set V, partition into X = [0, len_x) and Y = len_x + [0, len_y).
-    # For the set V', partition into Y' = [0, len_y) and X' = len_y + [0, len_x).
     if isinstance(costs, SparseGraph):
         # Start with original set of edges (X, i), (Y', j).
         elems = dict(costs.elems)
@@ -195,11 +221,11 @@ def _solve_unbal_as_assign(costs, solver):
         raise ValueError('unknown matrix type', type(costs))
 
     bal_rids, bal_cids = linear_sum_assignment(bal_costs, solver=solver)
-
     # Take subset of edges in X and Y'.
     matches = [
             (i, j) for i, j in zip(bal_rids, bal_cids) if i < len_x and j < len_y
     ]
+
     rids, cids = zip(*matches) if matches else ([], [])
     if use_transpose:
         rids, cids = cids, rids
@@ -224,17 +250,28 @@ def linear_sum_assignment(costs, solver=None):
         When callable: function to invoke
         When None: uses first available solver
     """
+    if not all(costs.shape):
+        return [], []
+    if costs.shape[0] != costs.shape[1]:
+        raise AssertionError('problem is not balanced', costs.shape)
+
     solver = _get_solver(solver)
     _assert_problem_is_valid(solver.problem)
     if solver.problem not in [UNBAL, ASSIGN]:
         raise AssertionError('solver problem is not in {UNBAL, ASSIGN}')
 
     rids, cids = solver(costs)
-    rids = np.asarray(rids).astype(int)
-    cids = np.asarray(cids).astype(int)
     return rids, cids
 
 def add_expensive_edges(costs):
+    """Replaces non-edge costs (nan, inf) with large number.
+
+    If the optimal solution includes one of these edges,
+    then the original problem was infeasible.
+
+    Args:
+        costs: np.ndarray
+    """
     # The graph is probably already dense if we are doing this.
     assert isinstance(costs, np.ndarray)
     # The linear_sum_assignment function in scipy does not support missing edges.
@@ -319,20 +356,14 @@ def lsa_solve_ortools(costs):
     return _ortools_extract_solution(assignment)
 
 def find_scale_for_integer_approximation(costs, base=10, log_max_scale=8, log_safety=2):
-    # Google OR tools only support integer costs. Here's our attempt
-    # to convert from floating point to integer:
-    #
-    # We search for the minimum difference between any two costs and
-    # compute the first non-zero digit after the decimal place. Then
-    # we compute a factor that scales all costs so that the difference
-    # is integer representable in the first digit.
-    #
-    # Example: min-diff is 0.001, then first non-zero digit place -3, so
-    # we scale by 1e3.
-    #
-    # For small min-diffs and large costs in general there is a change of
-    # overflowing.
+    """Returns a multiplicative factor to use before rounding to integers.
 
+    Tries to find scale = base ** j (for j integer) such that:
+        abs(diff(unique(costs))) <= 1 / (scale * safety)
+    where safety = base ** log_safety.
+
+    Logs a warning if the desired resolution could not be achieved.
+    """
     costs = np.asarray(costs)
     costs = costs[np.isfinite(costs)]  # Exclude non-edges (nan, inf) and -inf.
     if np.size(costs) == 0:
@@ -352,7 +383,7 @@ def find_scale_for_integer_approximation(costs, base=10, log_max_scale=8, log_sa
 
     # TODO: Suppress this warning if the approximation is exact?
     # That is, if np.round(scale * costs) == scale * costs.
-    logging.warning('costs are not integers; using approximation')
+    warnings.warn('costs are not integers; using approximation')
     # Find scale = base ** e such that:
     # 1 / scale <= tol, or
     # e = log(scale) >= -log(tol)
@@ -365,8 +396,8 @@ def find_scale_for_integer_approximation(costs, base=10, log_max_scale=8, log_sa
     e = max(e, 0)
     # Ensure that the scale is not too large.
     if e > log_max_scale:
-        logging.warning('could not achieve desired resolution for approximation: '
-                        'want exponent %d but max is %d', e, log_max_scale)
+        warnings.warn('could not achieve desired resolution for approximation: '
+                      'want exponent %d but max is %d', e, log_max_scale)
         e = log_max_scale
     scale = base ** e
     # TODO: Check that costs * scale does not cause overflow.
@@ -495,9 +526,9 @@ def init_standard_solvers():
     global available_solvers, default_solver, solver_map
 
     solvers = [
+        ('lapmod', Solver(lsa_solve_lapmod, ASSIGN, module='lap')),
         ('ortools', Solver(lsa_solve_ortools, ASSIGN, module='ortools')),
         ('lap', Solver(lsa_solve_lapjv, UNBAL, module='lap')),
-        ('lapmod', Solver(lsa_solve_lapmod, ASSIGN, module='lap')),
         ('lapsolver', Solver(lsa_solve_lapsolver, UNBAL, module='lapsolver')),
         ('scipy', Solver(lsa_solve_scipy, UNBAL, module='scipy')),
         ('munkres', Solver(lsa_solve_munkres, ASSIGN, module='munkres')),
@@ -595,7 +626,6 @@ def _as_sparse(costs):
     if isinstance(costs, SparseGraph):
         return costs
     elif isinstance(costs, np.ndarray):
-        logging.warning('convert dense to sparse: shape %s', costs.shape)
         return dense2sparse(costs)
     else:
         raise ValueError('unknown matrix type', type(costs))
@@ -604,7 +634,6 @@ def _as_dense(costs):
     if isinstance(costs, np.ndarray):
         return costs
     elif isinstance(costs, SparseGraph):
-        logging.warning('convert sparse to dense: shape %s', costs.shape)
         return sparse2dense(costs)
     else:
         raise ValueError('unknown matrix type', type(costs))
