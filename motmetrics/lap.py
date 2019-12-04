@@ -595,7 +595,10 @@ class SparseGraph(object):
         self.elems = elems
 
     def __getitem__(self, ij):
-        return self.elems[ij]
+        if ij in self.elems:
+            return self.elems[ij]
+        else:
+            return np.nan
 
     def __setitem__(self, ij, v):
         self.elems[ij] = v
