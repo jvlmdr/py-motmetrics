@@ -517,6 +517,18 @@ def id_global_assignment(df):
     #         'fp': fpmatrix[rids, cids].sum(),
     # }
 
+    # The cost of an assignment is the number of FPs and FNs that it incurs.
+    # Let M be the optimal matching and let 0 denote an empty matching.
+    # FP(M) = FP(0) - TP(M)
+    # FN(M) = FN(0) - TP(M)
+    # Therefore, rather than minimize FP(M) + FN(M), we can minimize -TP(M).
+    # Since all values in the cost matrix are non-positive, there is no need to
+    # enforce a complete matching (negative-cost edges will always be added if
+    # possible and zero-cost edges do not affect the objective).
+    # This means that we can exclude all zero-cost edges and find a
+    # minimum-weight matching in a sparse graph rather than a perfect
+    # assignment in a dense graph.
+
     costs = make_negtp_sparse(obj_counts, hyp_counts, tp_counts)
     rids, cids = lap.minimum_weight_matching(costs)
     min_neg_tp = sum(costs[r, c] for r, c in zip(rids, cids))
