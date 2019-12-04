@@ -103,7 +103,7 @@ def minimum_weight_matching(costs, solver=None):
     # Sort indices before returning.
     matches = sorted(matches)
     rids, cids = zip(*matches) if matches else ([], [])
-    return rids, cids
+    return np.array(rids, np.int64), np.array(cids, np.int64)
 
 def _solve_min_weight_as_unbal(costs, solver=None):
     """Converts MIN_WEIGHT into UNBAL and solves it.
@@ -178,7 +178,7 @@ def unbalanced_linear_sum_assignment(costs, solver=None):
     # Sort indices before returning.
     matches = sorted(matches)
     rids, cids = zip(*matches) if matches else ([], [])
-    return rids, cids
+    return np.array(rids, np.int64), np.array(cids, np.int64)
 
 def _solve_unbal_as_assign(costs, solver):
     """Converts UNBAL into ASSIGN and solves it.
@@ -251,7 +251,7 @@ def linear_sum_assignment(costs, solver=None):
         When None: uses first available solver
     """
     if not all(costs.shape):
-        return [], []
+        return np.array([], np.int64), np.array([], np.int64)
     if costs.shape[0] != costs.shape[1]:
         raise AssertionError('problem is not balanced', costs.shape)
 
@@ -261,7 +261,7 @@ def linear_sum_assignment(costs, solver=None):
         raise AssertionError('solver problem is not in {UNBAL, ASSIGN}')
 
     rids, cids = solver(costs)
-    return rids, cids
+    return np.array(rids, np.int64), np.array(cids, np.int64)
 
 def add_expensive_edges(costs):
     """Replaces non-edge costs (nan, inf) with large number.
