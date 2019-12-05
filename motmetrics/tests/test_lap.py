@@ -325,42 +325,30 @@ def choose_sparsity(n, prob_connected):
     # 1 - [1 - q ** (1/n)] ** (1/n) = s
     return 1 - (1 - prob_connected ** (1 / n)) ** (1 / n)
 
-@pytest.mark.parametrize('represent', ['sparse'])
 @pytest.mark.parametrize('solver', set(SOLVERS) - set(SLOW_SOLVERS))
 @pytest.mark.parametrize('n,min_degree', [(1000, 10)])
-def test_benchmark_assign_sparse_medium(benchmark, n, min_degree, represent, solver):
+def test_benchmark_assign_sparse_medium(benchmark, n, min_degree, solver):
     rand = np.random.RandomState(0)
     costs = random_sparse_min_degree(rand, size=(n, n), min_degree=min_degree)
-    if represent == 'dense':
-        costs = lap.sparse2dense(costs)
     benchmark(lap.linear_sum_assignment, costs, solver=solver)
 
-@pytest.mark.parametrize('represent', ['sparse', 'dense'])
-@pytest.mark.parametrize('solver', SPARSE_SOLVERS)
+@pytest.mark.parametrize('solver', set(SOLVERS) - set(SLOW_SOLVERS))
 @pytest.mark.parametrize('n,min_degree', [(10000, 10)])
-def test_benchmark_assign_sparse_large(benchmark, n, min_degree, represent, solver):
+def test_benchmark_assign_sparse_large(benchmark, n, min_degree, solver):
     rand = np.random.RandomState(0)
     costs = random_sparse_min_degree(rand, size=(n, n), min_degree=min_degree)
-    if represent == 'dense':
-        costs = lap.sparse2dense(costs)
     benchmark(lap.linear_sum_assignment, costs, solver=solver)
 
-@pytest.mark.parametrize('represent', ['sparse'])
 @pytest.mark.parametrize('solver', set(SOLVERS + ['greedy']) - set(SLOW_SOLVERS))
 @pytest.mark.parametrize('n,min_degree', [(1000, 10)])
-def test_benchmark_min_weight_sparse_medium(benchmark, n, min_degree, represent, solver):
+def test_benchmark_min_weight_sparse_medium(benchmark, n, min_degree, solver):
     rand = np.random.RandomState(0)
     costs = random_sparse_min_degree(rand, size=(n, n), min_degree=min_degree)
-    if represent == 'dense':
-        costs = lap.sparse2dense(costs)
     benchmark(lap.minimum_weight_matching, costs, solver=solver)
 
-@pytest.mark.parametrize('represent', ['sparse'])
 @pytest.mark.parametrize('solver', SPARSE_SOLVERS + ['greedy'])
 @pytest.mark.parametrize('n,min_degree', [(10000, 10)])
-def test_benchmark_min_weight_sparse_large(benchmark, n, min_degree, represent, solver):
+def test_benchmark_min_weight_sparse_large(benchmark, n, min_degree, solver):
     rand = np.random.RandomState(0)
     costs = random_sparse_min_degree(rand, size=(n, n), min_degree=min_degree)
-    if represent == 'dense':
-        costs = lap.sparse2dense(costs)
     benchmark(lap.minimum_weight_matching, costs, solver=solver)
