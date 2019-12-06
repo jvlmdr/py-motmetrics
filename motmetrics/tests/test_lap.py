@@ -332,7 +332,7 @@ def test_benchmark_assign_sparse_medium(benchmark, n, min_degree, solver):
     costs = random_sparse_min_degree(rand, size=(n, n), min_degree=min_degree)
     benchmark(lap.linear_sum_assignment, costs, solver=solver)
 
-@pytest.mark.parametrize('solver', set(SOLVERS) - set(SLOW_SOLVERS))
+@pytest.mark.parametrize('solver', SPARSE_SOLVERS)
 @pytest.mark.parametrize('n,min_degree', [(10000, 10)])
 def test_benchmark_assign_sparse_large(benchmark, n, min_degree, solver):
     rand = np.random.RandomState(0)
