@@ -272,41 +272,55 @@ def test_benchmark_assign_3x3(benchmark, solver):
     costs = np.asfarray([[6, 9, 1], [10, 3, 2], [8, 7, 4]])
     benchmark(lap.linear_sum_assignment, costs, solver=solver)
 
-def random_dense(rand, size):
-    return rand.uniform(-1, 1, size=size)
+def random_distance_matrix(rand, size):
+    # Take all distance between two sets of 2D points.
+    len_x, len_y = size
+    x = rand.uniform(0, 1, size=(len_x, 2))
+    y = rand.uniform(0, 1, size=(len_y, 2))
+    dist = np.linalg.norm(x[:, np.newaxis, :] - y[np.newaxis, :, :], axis=-1)
+    return dist
+
+def random_sparse_distance_matrix(rand, size, min_degree):
+    # Take all distance between two sets of 2D points.
+    dist = random_distance_matrix(rand, size)
+    # Find best `min_degree` edges for each vertex.
+    # TODO: How to ensure that the assignment problem is feasible?
+    num_rows, num_cols = size
+    # Index twice to avoid checking whether min_degre > size.
+    # Preserve dimensions for broadcasting.
+    kth_per_row = np.sort(dist, axis=1)[:, :min_degree][:, -1:]
+    kth_per_col = np.sort(dist, axis=0)[:min_degree, :][-1:, :]
+    mask = np.logical_or(dist <= kth_per_row, dist <= kth_per_col)
+    subset_v = dist[mask]
+    subset_i, subset_j = mask.nonzero()
+    elems = {(i, j): v for i, j, v in zip(subset_i, subset_j, subset_v)}
+    return lap.SparseGraph(size, elems)
+
+def random_sparse_negative_count_matrix(rand, size, sparsity, magnitude=1000):
+    costs = -rand.randint(magnitude, size=size)
+    mask = (rand.uniform(size=size) < sparsity)
+    subset_v = costs[mask]
+    subset_i, subset_j = mask.nonzero()
+    elems = {(i, j): v for i, j, v in zip(subset_i, subset_j, subset_v)}
+    return lap.SparseGraph(size, elems)
 
 @pytest.mark.parametrize('solver', SOLVERS)
 @pytest.mark.parametrize('n', [100])
-def test_benchmark_assign_dense_small(benchmark, n, solver):
+def test_benchmark_assign_dense_distance_small(benchmark, n, solver):
     rand = np.random.RandomState(0)
-    costs = random_dense(rand, size=(n, n))
+    costs = random_distance_matrix(rand, size=(n, n))
     benchmark(lap.linear_sum_assignment, costs, solver=solver)
 
 @pytest.mark.parametrize('solver', set(SOLVERS) - set(SLOW_SOLVERS))
 @pytest.mark.parametrize('n', [1000])
-def test_benchmark_assign_dense_medium(benchmark, n, solver):
+def test_benchmark_assign_dense_distance_medium(benchmark, n, solver):
     rand = np.random.RandomState(0)
-    costs = random_dense(rand, size=(n, n))
+    costs = random_distance_matrix(rand, size=(n, n))
     benchmark(lap.linear_sum_assignment, costs, solver=solver)
-
-def random_sparse_min_degree(rand, size, min_degree):
-    """Generates a graph with degree in [min_degree, 2 * min_degree]."""
-    x = random_dense(rand, size)
-    m, n = size
-    elems = {}
-    for i in range(m):
-        subset = rand.choice(n, size=min_degree, replace=False)
-        for j in subset:
-            elems[i, j] = x[i, j]
-    for j in range(n):
-        subset = rand.choice(m, size=min_degree, replace=False)
-        for i in subset:
-            elems[i, j] = x[i, j]
-    return lap.SparseGraph(size, elems)
 
 def random_sparse(rand, size, sparsity):
     """Does not guarantee that the graph will be connected."""
-    x = random_dense(rand, size)
+    x = random_distance_matrix(rand, size)
     keep = (rand.uniform(size=size) <= sparsity)
     elems = {}
     m, n = size
@@ -326,29 +340,29 @@ def choose_sparsity(n, prob_connected):
     return 1 - (1 - prob_connected ** (1 / n)) ** (1 / n)
 
 @pytest.mark.parametrize('solver', set(SOLVERS) - set(SLOW_SOLVERS))
-@pytest.mark.parametrize('n,min_degree', [(1000, 10)])
-def test_benchmark_assign_sparse_medium(benchmark, n, min_degree, solver):
+@pytest.mark.parametrize('n,min_degree', [(1000, 20)])
+def test_benchmark_assign_sparse_distance_medium(benchmark, n, min_degree, solver):
     rand = np.random.RandomState(0)
-    costs = random_sparse_min_degree(rand, size=(n, n), min_degree=min_degree)
+    costs = random_sparse_distance_matrix(rand, size=(n, n), min_degree=min_degree)
     benchmark(lap.linear_sum_assignment, costs, solver=solver)
 
 @pytest.mark.parametrize('solver', SPARSE_SOLVERS)
-@pytest.mark.parametrize('n,min_degree', [(10000, 10)])
-def test_benchmark_assign_sparse_large(benchmark, n, min_degree, solver):
+@pytest.mark.parametrize('n,min_degree', [(10000, 20)])
+def test_benchmark_assign_sparse_distance_large(benchmark, n, min_degree, solver):
     rand = np.random.RandomState(0)
-    costs = random_sparse_min_degree(rand, size=(n, n), min_degree=min_degree)
+    costs = random_sparse_distance_matrix(rand, size=(n, n), min_degree=min_degree)
     benchmark(lap.linear_sum_assignment, costs, solver=solver)
 
 @pytest.mark.parametrize('solver', set(SOLVERS + ['greedy']) - set(SLOW_SOLVERS))
-@pytest.mark.parametrize('n,min_degree', [(1000, 10)])
-def test_benchmark_min_weight_sparse_medium(benchmark, n, min_degree, solver):
+@pytest.mark.parametrize('n,sparsity', [(1000, 0.01)])
+def test_benchmark_min_weight_sparse_count_medium(benchmark, n, sparsity, solver):
     rand = np.random.RandomState(0)
-    costs = random_sparse_min_degree(rand, size=(n, n), min_degree=min_degree)
+    costs = random_sparse_negative_count_matrix(rand, size=(n, n), sparsity=sparsity)
     benchmark(lap.minimum_weight_matching, costs, solver=solver)
 
 @pytest.mark.parametrize('solver', SPARSE_SOLVERS + ['greedy'])
-@pytest.mark.parametrize('n,min_degree', [(10000, 10)])
-def test_benchmark_min_weight_sparse_large(benchmark, n, min_degree, solver):
+@pytest.mark.parametrize('n,sparsity', [(10000, 0.001)])
+def test_benchmark_min_weight_sparse_count_large(benchmark, n, sparsity, solver):
     rand = np.random.RandomState(0)
-    costs = random_sparse_min_degree(rand, size=(n, n), min_degree=min_degree)
+    costs = random_sparse_negative_count_matrix(rand, size=(n, n), sparsity=sparsity)
     benchmark(lap.minimum_weight_matching, costs, solver=solver)
