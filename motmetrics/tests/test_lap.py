@@ -286,7 +286,7 @@ def random_sparse_distance_matrix(rand, size, min_degree):
     # Find best `min_degree` edges for each vertex.
     # TODO: How to ensure that the assignment problem is feasible?
     num_rows, num_cols = size
-    # Index twice to avoid checking whether min_degre > size.
+    # Index twice to avoid checking whether min_degree > size.
     # Preserve dimensions for broadcasting.
     kth_per_row = np.sort(dist, axis=1)[:, :min_degree][:, -1:]
     kth_per_col = np.sort(dist, axis=0)[:min_degree, :][-1:, :]
@@ -317,27 +317,6 @@ def test_benchmark_assign_dense_distance_medium(benchmark, n, solver):
     rand = np.random.RandomState(0)
     costs = random_distance_matrix(rand, size=(n, n))
     benchmark(lap.linear_sum_assignment, costs, solver=solver)
-
-def random_sparse(rand, size, sparsity):
-    """Does not guarantee that the graph will be connected."""
-    x = random_distance_matrix(rand, size)
-    keep = (rand.uniform(size=size) <= sparsity)
-    elems = {}
-    m, n = size
-    for i in range(m):
-        for j in range(n):
-            if keep[i, j]:
-                elems[i, j] = x[i, j]
-    return lap.SparseGraph(size, elems)
-
-def choose_sparsity(n, prob_connected):
-    """Chooses sparsity for [n, n] matrix which satisfies p(connected)."""
-    # Let s be a sparsity factor.
-    # p(empty row) = (1 - s) ** n
-    # q = p(no empty rows) = (1 - (1 - s) ** n) ** n
-    # 1 - q ** (1/n) = (1 - s) ** n
-    # 1 - [1 - q ** (1/n)] ** (1/n) = s
-    return 1 - (1 - prob_connected ** (1 / n)) ** (1 / n)
 
 @pytest.mark.parametrize('solver', set(SOLVERS) - set(SLOW_SOLVERS))
 @pytest.mark.parametrize('n,min_degree', [(1000, 20)])
