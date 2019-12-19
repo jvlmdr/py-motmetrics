@@ -59,14 +59,9 @@ class Solver(object):
     def __call__(self, costs, **kwargs):
         return self.fn(costs, **kwargs)
 
-def _assert_problem_is_valid(problem):
+def _assert_problem_kind_is_valid(problem):
     if problem not in [ASSIGN, UNBAL, MIN_WEIGHT]:
         raise AssertionError('unknown problem type', problem)
-
-def _cost_is_edge(cost):
-    """Does this cost represent an edge?"""
-    # TODO: Are -inf values supported or not?
-    return ~(np.isnan(cost) | np.equal(cost, np.inf))
 
 def minimum_weight_matching(costs, solver=None):
     """Solves the minimum-weight matching (MIN_WEIGHT) problem.
@@ -78,7 +73,7 @@ def minimum_weight_matching(costs, solver=None):
     Args:
         costs: Either np.ndarray or lap.SparseGraph.
 
-    Let r be min(costs.shape), n = max(costs.shape) and m be the number of edges.
+    Let r be min(costs.shape), n be max(costs.shape) and m be the number of edges.
     It is converted into UNBAL with size:
         r' = r
         n' = n + r
@@ -89,7 +84,7 @@ def minimum_weight_matching(costs, solver=None):
     These sizes are linear in the original dimensions.
     """
     solver = _get_solver(solver)
-    _assert_problem_is_valid(solver.problem)
+    _assert_problem_kind_is_valid(solver.problem)
     if solver.problem == MIN_WEIGHT:
         # Use the solver directly if it is a MIN_WEIGHT solver.
         rids, cids = solver(costs)
@@ -130,7 +125,7 @@ def _solve_min_weight_as_unbal(costs, solver=None):
             elems[i, len_y + i] = 0
         lsa_costs = SparseGraph(lsa_shape, elems)
     elif isinstance(costs, np.ndarray):
-        # Same operation for dense ararys.
+        # Same operation for dense arrays.
         lsa_costs = np.full(lsa_shape, np.nan)
         lsa_costs[:, :len_y] = costs
         np.fill_diagonal(lsa_costs[:, len_y:], 0)
@@ -166,7 +161,7 @@ def unbalanced_linear_sum_assignment(costs, solver=None):
         costs: Either np.ndarray or lap.SparseGraph.
     """
     solver = _get_solver(solver)
-    _assert_problem_is_valid(solver.problem)
+    _assert_problem_kind_is_valid(solver.problem)
     if solver.problem == UNBAL:
         # Use the solver directly if it is an UNBAL solver.
         rids, cids = solver(costs)
@@ -256,7 +251,7 @@ def linear_sum_assignment(costs, solver=None):
         raise AssertionError('problem is not balanced', costs.shape)
 
     solver = _get_solver(solver)
-    _assert_problem_is_valid(solver.problem)
+    _assert_problem_kind_is_valid(solver.problem)
     if solver.problem not in [UNBAL, ASSIGN]:
         raise AssertionError('solver problem is not in {UNBAL, ASSIGN}')
 
@@ -277,7 +272,7 @@ def add_expensive_edges(costs):
     # The linear_sum_assignment function in scipy does not support missing edges.
     # Replace nan with a large constant that ensures it is not chosen.
     # If it is chosen, that means the problem was infeasible.
-    valid = _cost_is_edge(costs)
+    valid = np.isfinite(costs)
     if valid.all():
         return costs.copy()
     if not valid.any():
@@ -435,7 +430,7 @@ def _assert_solution_is_feasible(costs, rids, cids):
     if len(ijs) != min(costs.shape):
         raise AssertionError('infeasible solution: not enough edges')
     elems = [costs[i, j] for i, j in ijs]
-    if not np.all(_cost_is_edge(elems)):
+    if not np.all(np.isfinite(elems)):
         raise AssertionError('infeasible solution: includes non-finite edges')
 
 def lsa_solve_lapjv(costs):
@@ -617,7 +612,7 @@ def sparse2dense(sparse):
 
 def dense2sparse(dense):
     num_rows, num_cols = dense.shape
-    is_edge = _cost_is_edge(dense)
+    is_edge = np.isfinite(dense)
     elems = {}
     for i in range(num_rows):
         for j in range(num_cols):

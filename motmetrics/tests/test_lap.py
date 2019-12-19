@@ -15,8 +15,8 @@ def test_assign_easy(solver):
     result = lap.linear_sum_assignment(costs, solver=solver)
 
     expected = np.array([[0, 1, 2], [2, 1, 0]])
-    np.testing.assert_allclose(result, expected)
-    np.testing.assert_allclose(costs, costs_copy)
+    np.testing.assert_equal(result, expected)
+    np.testing.assert_equal(costs, costs_copy)
 
 @pytest.mark.parametrize('solver', SOLVERS)
 def test_assign_full(solver):
@@ -27,8 +27,8 @@ def test_assign_full(solver):
 
     # Optimal matching is (0, 2), (1, 1), (2, 0) for 6 + 2 + 2.
     expected = np.asfarray([[0, 1, 2], [2, 1, 0]])
-    np.testing.assert_allclose(result, expected)
-    np.testing.assert_allclose(costs, costs_copy)
+    np.testing.assert_equal(result, expected)
+    np.testing.assert_equal(costs, costs_copy)
 
 @pytest.mark.parametrize('solver', SOLVERS)
 def test_assign_full_negative(solver):
@@ -38,8 +38,8 @@ def test_assign_full_negative(solver):
 
     # Optimal matching is (0, 2), (1, 1), (2, 0) for 5 + 1 + 1.
     expected = np.array([[0, 1, 2], [2, 1, 0]])
-    np.testing.assert_allclose(result, expected)
-    np.testing.assert_allclose(costs, costs_copy)
+    np.testing.assert_equal(result, expected)
+    np.testing.assert_equal(costs, costs_copy)
 
 @pytest.mark.parametrize('solver', SOLVERS)
 def test_assign_empty(solver):
@@ -48,7 +48,7 @@ def test_assign_empty(solver):
     result = lap.linear_sum_assignment(costs, solver=solver)
 
     np.testing.assert_equal(np.size(result), 0)
-    np.testing.assert_allclose(costs, costs_copy)
+    np.testing.assert_equal(costs, costs_copy)
 
 @pytest.mark.parametrize('solver', SOLVERS)
 def test_assign_infeasible_raises(solver):
@@ -69,8 +69,8 @@ def test_assign_disallowed(solver):
     result = lap.linear_sum_assignment(costs, solver=solver)
 
     expected = np.array([[0, 1, 2], [0, 2, 1]])
-    np.testing.assert_allclose(result, expected)
-    np.testing.assert_allclose(costs, costs_copy)
+    np.testing.assert_equal(result, expected)
+    np.testing.assert_equal(costs, costs_copy)
 
 @pytest.mark.parametrize('solver', SOLVERS)
 def test_assign_non_integer(solver):
@@ -79,8 +79,8 @@ def test_assign_non_integer(solver):
     result = lap.linear_sum_assignment(costs, solver=solver)
 
     expected = np.array([[0, 1, 2], [0, 2, 1]])
-    np.testing.assert_allclose(result, expected)
-    np.testing.assert_allclose(costs, costs_copy)
+    np.testing.assert_equal(result, expected)
+    np.testing.assert_equal(costs, costs_copy)
 
 @pytest.mark.parametrize('solver', SOLVERS)
 def test_assign_attractive_disallowed(solver):
@@ -93,8 +93,8 @@ def test_assign_attractive_disallowed(solver):
     # Ensure that the algorithm does not choose the (0, 0) edge.
     # This would not be a perfect matching.
     expected = np.array([[0, 1], [1, 0]])
-    np.testing.assert_allclose(result, expected)
-    np.testing.assert_allclose(costs, costs_copy)
+    np.testing.assert_equal(result, expected)
+    np.testing.assert_equal(costs, costs_copy)
 
 @pytest.mark.parametrize('solver', SOLVERS)
 def test_assign_attractive_broken_ring(solver):
@@ -103,11 +103,11 @@ def test_assign_attractive_broken_ring(solver):
     costs_copy = costs.copy()
     result = lap.linear_sum_assignment(costs, solver=solver)
 
-    # The optimal solution is (0, 1), (1, 2), (2, 0) with cost 1000 + 1000 + 1000.
-    # A bad implementation may choose (0, 0), (1, 1), (2, 2) with cost inf + 1 + 1.
+    # Optimal solution is (0, 1), (1, 2), (2, 0) with cost 1000 + 1000 + 1000.
+    # Solver might choose (0, 0), (1, 1), (2, 2) with cost inf + 1 + 1.
     expected = np.array([[0, 1, 2], [1, 2, 0]])
-    np.testing.assert_allclose(result, expected)
-    np.testing.assert_allclose(costs, costs_copy)
+    np.testing.assert_equal(result, expected)
+    np.testing.assert_equal(costs, costs_copy)
 
 @pytest.mark.parametrize('solver', SOLVERS)
 def test_unbalanced_on_balanced(solver):
@@ -118,8 +118,8 @@ def test_unbalanced_on_balanced(solver):
 
     # Optimal matching is (0, 2), (1, 1), (2, 0) for 6 + 2 + 2.
     expected = np.array([[0, 1, 2], [2, 1, 0]])
-    np.testing.assert_allclose(result, expected)
-    np.testing.assert_allclose(costs, costs_copy)
+    np.testing.assert_equal(result, expected)
+    np.testing.assert_equal(costs, costs_copy)
 
 @pytest.mark.parametrize('solver', SOLVERS)
 def test_unbalanced_wide(solver):
@@ -128,8 +128,8 @@ def test_unbalanced_wide(solver):
     result = lap.unbalanced_linear_sum_assignment(costs, solver=solver)
 
     expected = np.array([[0, 1], [1, 2]])
-    np.testing.assert_allclose(result, expected)
-    np.testing.assert_allclose(costs, costs_copy)
+    np.testing.assert_equal(result, expected)
+    np.testing.assert_equal(costs, costs_copy)
 
 @pytest.mark.parametrize('solver', SOLVERS)
 def test_unbalanced_tall(solver):
@@ -138,8 +138,8 @@ def test_unbalanced_tall(solver):
     result = lap.unbalanced_linear_sum_assignment(costs, solver=solver)
 
     expected = np.array([[1, 2], [0, 1]])
-    np.testing.assert_allclose(result, expected)
-    np.testing.assert_allclose(costs, costs_copy)
+    np.testing.assert_equal(result, expected)
+    np.testing.assert_equal(costs, costs_copy)
 
 @pytest.mark.parametrize('solver', SOLVERS)
 def test_unbalanced_disallowed_wide(solver):
@@ -149,8 +149,8 @@ def test_unbalanced_disallowed_wide(solver):
     result = lap.unbalanced_linear_sum_assignment(costs, solver=solver)
 
     expected = np.array([[0, 1], [2, 0]])
-    np.testing.assert_allclose(result, expected)
-    np.testing.assert_allclose(costs, costs_copy)
+    np.testing.assert_equal(result, expected)
+    np.testing.assert_equal(costs, costs_copy)
 
 @pytest.mark.parametrize('solver', SOLVERS)
 def test_unbalanced_disallowed_tall(solver):
@@ -161,8 +161,8 @@ def test_unbalanced_disallowed_tall(solver):
     result = lap.unbalanced_linear_sum_assignment(costs, solver=solver)
 
     expected = np.array([[0, 2], [1, 0]])
-    np.testing.assert_allclose(result, expected)
-    np.testing.assert_allclose(costs, costs_copy)
+    np.testing.assert_equal(result, expected)
+    np.testing.assert_equal(costs, costs_copy)
 
 @pytest.mark.parametrize('solver', SOLVERS)
 def test_unbalanced_infeasible_raises(solver):
@@ -181,8 +181,8 @@ def test_min_weight_negative_easy(solver):
     result = lap.minimum_weight_matching(costs, solver=solver)
 
     expected = np.array([[0, 1, 2], [2, 1, 0]])
-    np.testing.assert_allclose(result, expected)
-    np.testing.assert_allclose(costs, costs_copy)
+    np.testing.assert_equal(result, expected)
+    np.testing.assert_equal(costs, costs_copy)
 
 @pytest.mark.parametrize('solver', SOLVERS)
 def test_min_weight_negative(solver):
@@ -193,8 +193,8 @@ def test_min_weight_negative(solver):
 
     # Optimal matching is (0, 2), (1, 1), (2, 0) for 5 + 1 + 1.
     expected = np.array([[0, 1, 2], [2, 1, 0]])
-    np.testing.assert_allclose(result, expected)
-    np.testing.assert_allclose(costs, costs_copy)
+    np.testing.assert_equal(result, expected)
+    np.testing.assert_equal(costs, costs_copy)
 
 @pytest.mark.parametrize('solver', SOLVERS)
 def test_min_weight_positive(solver):
@@ -204,8 +204,8 @@ def test_min_weight_positive(solver):
     result = lap.minimum_weight_matching(costs, solver=solver)
 
     expected = np.array([[], []])
-    np.testing.assert_allclose(result, expected)
-    np.testing.assert_allclose(costs, costs_copy)
+    np.testing.assert_equal(result, expected)
+    np.testing.assert_equal(costs, costs_copy)
 
 @pytest.mark.parametrize('solver', SOLVERS + ['greedy'])
 def test_min_weight_with_zeros(solver):
@@ -215,8 +215,8 @@ def test_min_weight_with_zeros(solver):
     result = lap.minimum_weight_matching(costs, solver=solver)
 
     expected = np.array([[0], [2]])
-    np.testing.assert_allclose(result, expected)
-    np.testing.assert_allclose(costs, costs_copy)
+    np.testing.assert_equal(result, expected)
+    np.testing.assert_equal(costs, costs_copy)
 
 @pytest.mark.parametrize('solver', SOLVERS + ['greedy'])
 def test_min_weight_with_negative_zeros(solver):
@@ -226,8 +226,8 @@ def test_min_weight_with_negative_zeros(solver):
     result = lap.minimum_weight_matching(costs, solver=solver)
 
     expected = np.array([[0], [2]])
-    np.testing.assert_allclose(result, expected)
-    np.testing.assert_allclose(costs, costs_copy)
+    np.testing.assert_equal(result, expected)
+    np.testing.assert_equal(costs, costs_copy)
 
 @pytest.mark.parametrize('solver', SOLVERS)
 def test_min_weight_wide(solver):
@@ -237,8 +237,8 @@ def test_min_weight_wide(solver):
     result = lap.minimum_weight_matching(costs, solver=solver)
 
     expected = np.array([[0, 1], [2, 0]])
-    np.testing.assert_allclose(result, expected)
-    np.testing.assert_allclose(costs, costs_copy)
+    np.testing.assert_equal(result, expected)
+    np.testing.assert_equal(costs, costs_copy)
 
 @pytest.mark.parametrize('solver', SOLVERS)
 def test_min_weight_tall(solver):
@@ -247,8 +247,8 @@ def test_min_weight_tall(solver):
     result = lap.minimum_weight_matching(costs, solver=solver)
 
     expected = np.array([[0, 2], [1, 0]])
-    np.testing.assert_allclose(result, expected)
-    np.testing.assert_allclose(costs, costs_copy)
+    np.testing.assert_equal(result, expected)
+    np.testing.assert_equal(costs, costs_copy)
 
 def test_change_solver():
 
@@ -257,7 +257,7 @@ def test_change_solver():
         return np.array([]), np.array([])
     mysolver.called = 0
 
-    costs = np.array([[6, 9, 1], [10, 3, 2], [8, 7, 4]])
+    costs = np.asfarray([[6, 9, 1], [10, 3, 2], [8, 7, 4]])
 
     with lap.set_default_solver(lap.Solver(mysolver, lap.ASSIGN)):
         rids, cids = lap.linear_sum_assignment(costs)
@@ -319,14 +319,14 @@ def test_benchmark_assign_dense_distance_medium(benchmark, n, solver):
     benchmark(lap.linear_sum_assignment, costs, solver=solver)
 
 @pytest.mark.parametrize('solver', set(SOLVERS) - set(SLOW_SOLVERS))
-@pytest.mark.parametrize('n,min_degree', [(1000, 20)])
+@pytest.mark.parametrize('n,min_degree', [(1000, 10)])
 def test_benchmark_assign_sparse_distance_medium(benchmark, n, min_degree, solver):
     rand = np.random.RandomState(0)
     costs = random_sparse_distance_matrix(rand, size=(n, n), min_degree=min_degree)
     benchmark(lap.linear_sum_assignment, costs, solver=solver)
 
 @pytest.mark.parametrize('solver', SPARSE_SOLVERS)
-@pytest.mark.parametrize('n,min_degree', [(10000, 20)])
+@pytest.mark.parametrize('n,min_degree', [(10000, 10)])
 def test_benchmark_assign_sparse_distance_large(benchmark, n, min_degree, solver):
     rand = np.random.RandomState(0)
     costs = random_sparse_distance_matrix(rand, size=(n, n), min_degree=min_degree)
