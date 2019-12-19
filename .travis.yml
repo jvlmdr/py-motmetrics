@@ -26,5 +26,8 @@ install:
     - pip install pytest-benchmark
     - pip install .
     - pip install ortools
+    - pip install lap
+    - pip install munkres
+    - pip install lapsolver
 
-script: pytest
+script: pytest --benchmark-group-by=func
