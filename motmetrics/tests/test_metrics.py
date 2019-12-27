@@ -6,6 +6,7 @@ import pytest
 import os
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), '../data')
+METRICS_TO_TEST = list(mm.metrics.motchallenge_metrics) + ['gr_idf1', 'gr_idp', 'gr_idr']
 
 def test_metricscontainer_1():
     m = mm.metrics.MetricsHost()
@@ -310,7 +311,7 @@ def test_motchallenge_files():
     # [a.events.to_pickle(n) for (a,n) in zip(accs, dnames)]
 
     mh = mm.metrics.create()
-    summary = mh.compute_many(accs, metrics=mm.metrics.motchallenge_metrics, names=dnames, generate_overall=True)
+    summary = mh.compute_many(accs, metrics=METRICS_TO_TEST, names=dnames, generate_overall=True)
 
     print()
     print(mm.io.render_summary(summary, namemap=mm.io.motchallenge_metric_names, formatters=mh.formatters))

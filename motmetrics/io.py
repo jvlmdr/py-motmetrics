@@ -366,5 +366,8 @@ motchallenge_metric_names = {
     'num_transfer' : 'IDt',
     'num_ascend' : 'IDa',
     'num_migrate' : 'IDm',
+    'gr_idf1' : 'GrIDF1',
+    'gr_idp' : 'GrIDP',
+    'gr_idr' : 'GrIDR',
 }
 """A list mappings for metric names to comply with MOTChallenge."""

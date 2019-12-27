@@ -674,17 +674,26 @@ simple_add_func.append(gr_idtp)
 def gr_idp(df, gr_idtp, gr_idfp):
     """ID measures: greedy min-cost precision."""
     return _qdiv(gr_idtp, gr_idtp + gr_idfp)
-simple_add_func.append(gr_idp)
+
+def gr_idp_m(partials, gr_idtp, gr_idfp):
+    """ID measures: greedy min-cost precision."""
+    return _qdiv(gr_idtp, gr_idtp + gr_idfp)
 
 def gr_idr(df, gr_idtp, gr_idfn):
     """ID measures: greedy min-cost recall."""
     return _qdiv(gr_idtp, gr_idtp + gr_idfn)
-simple_add_func.append(gr_idr)
+
+def gr_idr_m(partials, gr_idtp, gr_idfn):
+    """ID measures: greedy min-cost recall."""
+    return _qdiv(gr_idtp, gr_idtp + gr_idfn)
 
 def gr_idf1(df, gr_idtp, num_objects, num_predictions):
     """ID measures: greedy min-cost F1 score."""
     return _qdiv(2 * gr_idtp, num_objects + num_predictions)
-simple_add_func.append(gr_idf1)
+
+def gr_idf1_m(partials, gr_idtp, num_objects, num_predictions):
+    """ID measures: greedy min-cost F1 score."""
+    return _qdiv(2 * gr_idtp, num_objects + num_predictions)
 
 # def iou_sum(df):
 #     """Extra measures: sum IoU of all matches"""
