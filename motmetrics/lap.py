@@ -229,15 +229,15 @@ def _solve_unbal_as_assign(costs, solver):
 def linear_sum_assignment(costs, solver=None):
     """Solve a linear sum assignment problem (LSA).
 
-    For large datasets solving the minimum cost assignment becomes the dominant runtime part. 
+    For large datasets solving the minimum cost assignment becomes the dominant runtime part.
     We therefore support various solvers out of the box (currently lapsolver, scipy, ortools, munkres)
-    
+
     Params
     ------
     costs : np.array
         numpy matrix containing costs. Use NaN/Inf values for unassignable
         row/column pairs.
-    
+
     Kwargs
     ------
     solver : callable or str, optional
@@ -561,7 +561,7 @@ def set_default_solver(newsolver):
         costs = ...
         mysolver = lambda x: ... # solver code that returns pairings
 
-        with lap.set_default_solver(mysolver): 
+        with lap.set_default_solver(mysolver):
             rids, cids = lap.linear_sum_assignment(costs)
 
     Params
@@ -574,7 +574,7 @@ def set_default_solver(newsolver):
 
     oldsolver = default_solver
     try:
-        default_solver = newsolver    
+        default_solver = newsolver
         yield
     finally:
         default_solver = oldsolver
