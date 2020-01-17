@@ -1,5 +1,4 @@
 import pytest
-import itertools
 import numpy as np
 import motmetrics.lap as lap
 

@@ -10,7 +10,6 @@ import numpy as np
 import numpy.ma as ma
 import pandas as pd
 from collections import OrderedDict
-from itertools import count
 import itertools
 from motmetrics import lap
 
@@ -236,21 +235,21 @@ class MOTAccumulator(object):
 
                 o = oids[i]
                 h = hids[j]
-                is_switch = (
-                    o in self.m and
-                    self.m[o] != h and
-                    abs(frameid - self.last_occurrence[o]) <= self.max_switch_time)
+                is_switch = (o in self.m and
+                             self.m[o] != h and
+                             abs(frameid - self.last_occurrence[o]) <= self.max_switch_time)
                 cat1 = 'SWITCH' if is_switch else 'MATCH'
                 if cat1 == 'SWITCH':
                     if h not in self.hypHistory:
                         subcat = 'ASCEND'
                         self._append_to_indices(frameid, next(eid))
                         self._append_to_events(subcat, oids[i], hids[j], dists[i, j])
-                # ignore last condition temporarily
-                is_transfer = (h in self.res_m and self.res_m[h] != o)
-                # is_transfer = (
-                #     h in self.res_m and self.res_m[h] != o and
-                #     abs(frameid - self.last_occurrence[o]) <= self.max_switch_time))
+                # ignore the last condition temporarily
+                is_transfer = (h in self.res_m and
+                               self.res_m[h] != o)
+                # is_transfer = (h in self.res_m and
+                #                self.res_m[h] != o and
+                #                abs(frameid - self.last_occurrence[o]) <= self.max_switch_time)
                 cat2 = 'TRANSFER' if is_transfer else 'MATCH'
                 if cat2 == 'TRANSFER':
                     if o not in self.last_match:
@@ -308,7 +307,7 @@ class MOTAccumulator(object):
     @staticmethod
     def new_event_dataframe():
         """Create a new DataFrame for event tracking."""
-        idx = pd.MultiIndex(levels=[[], []], labels=[[], []], names=['FrameId', 'Event'])
+        idx = pd.MultiIndex(levels=[[], []], codes=[[], []], names=['FrameId', 'Event'])
         cats = pd.Categorical([], categories=['RAW', 'FP', 'MISS', 'SWITCH', 'MATCH', 'TRANSFER', 'ASCEND', 'MIGRATE'])
         df = pd.DataFrame(
             OrderedDict([
