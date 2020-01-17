@@ -301,7 +301,7 @@ def lsa_solve_scipy(costs):
     return rids, cids
 
 def lsa_solve_lapsolver(costs):
-    """Solves the MWM problem using the lapsolver library."""
+    """Solves the LSA problem using the lapsolver library."""
     from lapsolver import solve_dense
 
     costs = _as_dense(costs)
