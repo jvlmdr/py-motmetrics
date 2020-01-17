@@ -305,7 +305,8 @@ def lsa_solve_lapsolver(costs):
     from lapsolver import solve_dense
 
     costs = _as_dense(costs)
-    rids, cids = solve_dense(costs)
+    finite_costs = add_expensive_edges(costs)
+    rids, cids = solve_dense(finite_costs)
     _assert_solution_is_feasible(costs, rids, cids)
     return rids, cids
 
