@@ -96,11 +96,11 @@ class MOTAccumulator(object):
 
         self._events = {field: [] for field in _EVENT_FIELDS}
         self._indices = {field: [] for field in _INDEX_FIELDS}
-        #self.events = MOTAccumulator.new_event_dataframe()
-        self.m = {} # Pairings up to current timestamp
-        self.res_m = {} # Result pairings up to now
-        self.last_occurrence = {} # Tracks most recent occurance of object
-        self.last_match = {} # Tracks most recent match of object
+        # self.events = MOTAccumulator.new_event_dataframe()
+        self.m = {}  # Pairings up to current timestamp
+        self.res_m = {}  # Result pairings up to now
+        self.last_occurrence = {}  # Tracks most recent occurance of object
+        self.last_match = {}  # Tracks most recent match of object
         self.hypHistory = {}
         self.dirty_events = True
         self.cached_events_df = None
@@ -228,7 +228,7 @@ class MOTAccumulator(object):
             dists[:, hids_masked] = np.nan
 
             rids, cids = lap.unbalanced_linear_sum_assignment(
-                    lap.add_expensive_edges(dists))
+                lap.add_expensive_edges(dists))
 
             for i, j in zip(rids, cids):
                 if not np.isfinite(dists[i, j]):
@@ -236,18 +236,21 @@ class MOTAccumulator(object):
 
                 o = oids[i]
                 h = hids[j]
-                is_switch = o in self.m and \
-                            self.m[o] != h and \
-                            abs(frameid - self.last_occurrence[o]) <= self.max_switch_time
+                is_switch = (
+                    o in self.m and
+                    self.m[o] != h and
+                    abs(frameid - self.last_occurrence[o]) <= self.max_switch_time)
                 cat1 = 'SWITCH' if is_switch else 'MATCH'
                 if cat1 == 'SWITCH':
                     if h not in self.hypHistory:
                         subcat = 'ASCEND'
                         self._append_to_indices(frameid, next(eid))
                         self._append_to_events(subcat, oids[i], hids[j], dists[i, j])
-                is_transfer = h in self.res_m and \
-                              self.res_m[h] != o #and \
-                              # abs(frameid - self.last_occurrence[o]) <= self.max_switch_time # ignore this condition temporarily
+                # ignore last condition temporarily
+                is_transfer = (h in self.res_m and self.res_m[h] != o)
+                # is_transfer = (
+                #     h in self.res_m and self.res_m[h] != o and
+                #     abs(frameid - self.last_occurrence[o]) <= self.max_switch_time))
                 cat2 = 'TRANSFER' if is_transfer else 'MATCH'
                 if cat2 == 'TRANSFER':
                     if o not in self.last_match:

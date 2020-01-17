@@ -289,7 +289,9 @@ def test_change_solver():
     rids, cids = lap.linear_sum_assignment(costs)
     assert mysolver.called == 1
 
-######## BENCHMARKS ########
+##############
+# BENCHMARKS #
+##############
 
 
 @pytest.mark.parametrize('solver', SOLVERS)

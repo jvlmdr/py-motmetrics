@@ -137,7 +137,7 @@ def _solve_min_weight_as_unbal(costs, solver=None):
         raise ValueError('unknown matrix type', type(costs))
 
     lsa_rids, lsa_cids = unbalanced_linear_sum_assignment(
-            lsa_costs, solver=solver)
+        lsa_costs, solver=solver)
     # Select subset of matches (i, j) where j is within Y.
     matches = [(i, j) for i, j in zip(lsa_rids, lsa_cids) if j < len_y]
 
@@ -224,7 +224,7 @@ def _solve_unbal_as_assign(costs, solver):
     bal_rids, bal_cids = linear_sum_assignment(bal_costs, solver=solver)
     # Take subset of edges in X and Y'.
     matches = [
-            (i, j) for i, j in zip(bal_rids, bal_cids) if i < len_x and j < len_y
+        (i, j) for i, j in zip(bal_rids, bal_cids) if i < len_x and j < len_y
     ]
 
     rids, cids = zip(*matches) if matches else ([], [])
@@ -556,8 +556,8 @@ def init_standard_solvers():
     solver_map = dict(solvers)
 
     available_solvers = [
-            name for name, solver in solvers
-            if (solver.module is None or importlib.util.find_spec(solver.module) is not None)
+        name for name, solver in solvers
+        if (solver.module is None or importlib.util.find_spec(solver.module) is not None)
     ]
     if len(available_solvers) == 0:
         import warnings
