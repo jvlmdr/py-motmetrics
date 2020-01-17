@@ -39,6 +39,7 @@ ASSIGN = 'assign'
 UNBAL = 'unbal'
 MIN_WEIGHT = 'min_weight'
 
+
 class Solver(object):
     """Adds metadata to function for solving assigment problems."""
 
@@ -59,9 +60,11 @@ class Solver(object):
     def __call__(self, costs, **kwargs):
         return self.fn(costs, **kwargs)
 
+
 def _assert_problem_kind_is_valid(problem):
     if problem not in [ASSIGN, UNBAL, MIN_WEIGHT]:
         raise AssertionError('unknown problem type', problem)
+
 
 def minimum_weight_matching(costs, solver=None):
     """Solves the minimum-weight matching (MIN_WEIGHT) problem.
@@ -99,6 +102,7 @@ def minimum_weight_matching(costs, solver=None):
     matches = sorted(matches)
     rids, cids = zip(*matches) if matches else ([], [])
     return np.array(rids, np.int64), np.array(cids, np.int64)
+
 
 def _solve_min_weight_as_unbal(costs, solver=None):
     """Converts MIN_WEIGHT into UNBAL and solves it.
@@ -142,6 +146,7 @@ def _solve_min_weight_as_unbal(costs, solver=None):
         rids, cids = cids, rids
     return rids, cids
 
+
 def unbalanced_linear_sum_assignment(costs, solver=None):
     """Solves linear sum assignment where the two sets have different sizes.
 
@@ -174,6 +179,7 @@ def unbalanced_linear_sum_assignment(costs, solver=None):
     matches = sorted(matches)
     rids, cids = zip(*matches) if matches else ([], [])
     return np.array(rids, np.int64), np.array(cids, np.int64)
+
 
 def _solve_unbal_as_assign(costs, solver):
     """Converts UNBAL into ASSIGN and solves it.
@@ -226,6 +232,7 @@ def _solve_unbal_as_assign(costs, solver):
         rids, cids = cids, rids
     return rids, cids
 
+
 def linear_sum_assignment(costs, solver=None):
     """Solve a linear sum assignment problem (LSA).
 
@@ -257,6 +264,7 @@ def linear_sum_assignment(costs, solver=None):
 
     rids, cids = solver(costs)
     return np.array(rids, np.int64), np.array(cids, np.int64)
+
 
 def add_expensive_edges(costs):
     """Replaces non-edge costs (nan, inf) with large number.
@@ -290,6 +298,7 @@ def add_expensive_edges(costs):
     large_constant = 2 * r * c + 1
     return np.where(valid, costs, large_constant)
 
+
 def lsa_solve_scipy(costs):
     """Solves the LSA problem using the scipy library."""
     from scipy.optimize import linear_sum_assignment as scipy_solve
@@ -300,6 +309,7 @@ def lsa_solve_scipy(costs):
     _assert_solution_is_feasible(costs, rids, cids)
     return rids, cids
 
+
 def lsa_solve_lapsolver(costs):
     """Solves the LSA problem using the lapsolver library."""
     from lapsolver import solve_dense
@@ -309,6 +319,7 @@ def lsa_solve_lapsolver(costs):
     rids, cids = solve_dense(finite_costs)
     _assert_solution_is_feasible(costs, rids, cids)
     return rids, cids
+
 
 def lsa_solve_munkres(costs):
     """Solves the LSA problem using the Munkres library."""
@@ -324,6 +335,7 @@ def lsa_solve_munkres(costs):
     rids, cids = indices[:, 0], indices[:, 1]
     _assert_solution_is_feasible(costs, rids, cids)
     return rids, cids
+
 
 def lsa_solve_ortools(costs):
     """Solves the LSA problem using Google's optimization tools.
@@ -350,6 +362,7 @@ def lsa_solve_ortools(costs):
     status = assignment.Solve()
     _ortools_assert_is_optimal(pywrapgraph, status)
     return _ortools_extract_solution(assignment)
+
 
 def find_scale_for_integer_approximation(costs, base=10, log_max_scale=8, log_safety=2):
     """Returns a multiplicative factor to use before rounding to integers.
@@ -399,10 +412,12 @@ def find_scale_for_integer_approximation(costs, base=10, log_max_scale=8, log_sa
     # TODO: Check that costs * scale does not cause overflow.
     return scale
 
+
 def _assert_integer(costs):
     # Check that costs are not changed by rounding.
     # Note: Elements of cost matrix may be nan, inf, -inf.
     np.testing.assert_equal(np.round(costs), costs)
+
 
 def _ortools_assert_is_optimal(pywrapgraph, status):
     if status == pywrapgraph.LinearSumAssignment.OPTIMAL:
@@ -413,6 +428,7 @@ def _ortools_assert_is_optimal(pywrapgraph, status):
         raise AssertionError('ortools: possible overflow in assignment problem')
     else:
         raise AssertionError('ortools: unknown status')
+
 
 def _ortools_extract_solution(assignment):
     if assignment.NumNodes() == 0:
@@ -425,6 +441,7 @@ def _ortools_extract_solution(assignment):
     indices = np.array(pairings, dtype=np.int)
     return indices[:, 0], indices[:, 1]
 
+
 def _assert_solution_is_feasible(costs, rids, cids):
     # Note: The matrix costs may be sparse or dense.
     ijs = list(zip(rids, cids))
@@ -433,6 +450,7 @@ def _assert_solution_is_feasible(costs, rids, cids):
     elems = [costs[i, j] for i, j in ijs]
     if not np.all(np.isfinite(elems)):
         raise AssertionError('infeasible solution: includes non-finite edges')
+
 
 def lsa_solve_lapjv(costs):
     from lap import lapjv
@@ -449,6 +467,7 @@ def lsa_solve_lapjv(costs):
     # Ensure that no missing edges were chosen.
     _assert_solution_is_feasible(costs, rids, cids)
     return rids, cids
+
 
 def lsa_solve_lapmod(costs):
     from lap import lapmod
@@ -469,6 +488,7 @@ def lsa_solve_lapmod(costs):
     _assert_solution_is_feasible(costs, rids, cids)
     return rids, cids
 
+
 def _sparse_to_lapmod(costs):
     num_rows, num_cols = costs.shape
     by_row = {i: {} for i in range(num_rows)}
@@ -486,6 +506,7 @@ def _sparse_to_lapmod(costs):
     cc = np.array(cc)
     kk = np.array(kk, np.int)
     return num_rows, cc, ii, kk
+
 
 def mwm_solve_greedy(costs):
     """Solves the Minimum-Weight Matching problem using a greedy approach.
@@ -514,6 +535,7 @@ def mwm_solve_greedy(costs):
     matches.sort()
     rids, cids = zip(*matches) if matches else ([], [])
     return rids, cids
+
 
 def init_standard_solvers():
     import importlib
@@ -544,13 +566,16 @@ def init_standard_solvers():
     else:
         default_solver = available_solvers[0]
 
+
 init_standard_solvers()
+
 
 def _get_solver(solver):
     solver = solver or default_solver
     if isinstance(solver, six.string_types):
         solver = solver_map[solver]
     return solver
+
 
 @contextmanager
 def set_default_solver(newsolver):
@@ -579,6 +604,7 @@ def set_default_solver(newsolver):
     finally:
         default_solver = oldsolver
 
+
 class SparseGraph(object):
     """Sparse adjacency matrix for a weighted graph.
 
@@ -605,11 +631,13 @@ class SparseGraph(object):
         elems = {(j, i): v for (i, j), v in self.elems.items()}
         return SparseGraph(shape, elems)
 
+
 def sparse2dense(sparse):
     dense = np.full(sparse.shape, np.nan)
     for (i, j), v in sparse.elems.items():
         dense[i, j] = v
     return dense
+
 
 def dense2sparse(dense):
     num_rows, num_cols = dense.shape
@@ -621,6 +649,7 @@ def dense2sparse(dense):
                 elems[i, j] = dense[i, j]
     return SparseGraph(dense.shape, elems)
 
+
 def _as_sparse(costs):
     if isinstance(costs, SparseGraph):
         return costs
@@ -628,6 +657,7 @@ def _as_sparse(costs):
         return dense2sparse(costs)
     else:
         raise ValueError('unknown matrix type', type(costs))
+
 
 def _as_dense(costs):
     if isinstance(costs, np.ndarray):
