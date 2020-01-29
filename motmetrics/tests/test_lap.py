@@ -3,7 +3,7 @@ import numpy as np
 import motmetrics.lap as lap
 
 SOLVERS = ['scipy', 'munkres', 'ortools', 'lap', 'lapmod', 'lapsolver']
-SLOW_SOLVERS = ['scipy', 'munkres']
+SLOW_SOLVERS = ['munkres']
 SPARSE_SOLVERS = ['ortools', 'lapmod']
 
 
