@@ -16,6 +16,7 @@ from collections import OrderedDict
 import io
 import logging
 import os
+import pickle
 import sys
 from tempfile import NamedTemporaryFile
 import time
@@ -69,6 +70,7 @@ string in the seqmap.""", formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('--solver', type=str, help='LAP solver to use')
     parser.add_argument('--skip', type=int, default=0, help='skip frames n means choosing one frame for every (n+1) frames')
     parser.add_argument('--iou', type=float, default=0.5, help='special IoU threshold requirement for small targets')
+    parser.add_argument('--output_file', type=str, help='(optional) Write result of evalution to file.')
     return parser.parse_args()
 
 
@@ -179,6 +181,11 @@ def main():
     summary = mh.compute_many(accs, anas=analysis, names=names, metrics=mm.metrics.motchallenge_metrics, generate_overall=True)
     print(mm.io.render_summary(summary, formatters=mh.formatters, namemap=mm.io.motchallenge_metric_names))
     logging.info('Completed')
+
+    if args.output_file:
+        os.makedirs(os.path.dirname(args.output_file), exist_ok=True)
+        with open(args.output_file, 'wb') as f:
+            pickle.dump(summary, f)
 
 
 if __name__ == '__main__':
