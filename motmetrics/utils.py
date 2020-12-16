@@ -121,11 +121,9 @@ def CLEAR_MOT_M(gt, dt, inifile, dist='iou', distfields=None, distth=0.5, includ
 
     compute_dist = compute_iou if dist.upper() == 'IOU' else compute_euc
 
-    # Remove any predictions for other classes.
+    # Class should always be -1 for predictions.
     if not np.all(dt['ClassId'] == -1):
-        # Keep -1, 0, 1 and nan.
-        # TODO: Log a warning.
-        dt = dt[~(dt['ClassId'] > 1)]
+        raise ValueError('class id must be -1 for predictions')
 
     acc = MOTAccumulator()
     dt = preprocessResult(dt, gt, inifile)
