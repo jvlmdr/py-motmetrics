@@ -30,6 +30,7 @@ METRICS = [
     'recall',
     'precision',
     'num_unique_objects',
+    'num_unique_predictions',
     'mostly_tracked',
     'partially_tracked',
     'mostly_lost',

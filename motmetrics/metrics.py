@@ -364,6 +364,15 @@ def num_unique_objects(df, obj_frequencies):
 simple_add_func.append(num_unique_objects)
 
 
+def num_unique_predictions(df, pred_frequencies):
+    """Total number of unique prediction ids encountered."""
+    del df  # unused
+    return len(pred_frequencies)
+
+
+simple_add_func.append(num_unique_predictions)
+
+
 def num_matches(df):
     """Total number matches."""
     return df.noraw.Type.isin(['MATCH']).sum()
@@ -640,7 +649,7 @@ def id_global_assignment(df, ana=None):
         'rids': rids,
         'cids': cids,
         'costs': costs,
-        'min_cost': costs[rids, cids].sum()
+        'min_cost': costs[rids, cids].sum(),
     }
 
 
@@ -737,6 +746,7 @@ def create():
     m.register(num_objects, formatter='{:d}'.format)
     m.register(num_predictions, formatter='{:d}'.format)
     m.register(num_unique_objects, formatter='{:d}'.format)
+    m.register(num_unique_predictions, formatter='{:d}'.format)
     m.register(track_ratios)
     m.register(mostly_tracked, formatter='{:d}'.format)
     m.register(partially_tracked, formatter='{:d}'.format)
@@ -765,6 +775,7 @@ motchallenge_metrics = [
     'recall',
     'precision',
     'num_unique_objects',
+    'num_unique_predictions',
     'mostly_tracked',
     'partially_tracked',
     'mostly_lost',
