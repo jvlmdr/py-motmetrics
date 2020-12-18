@@ -51,6 +51,7 @@ METRICS = [
     'num_detections',
     'num_objects',
     'num_predictions',
+    'num_overlap',
 ]
 
 

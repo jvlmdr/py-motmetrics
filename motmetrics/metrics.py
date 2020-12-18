@@ -650,6 +650,7 @@ def id_global_assignment(df, ana=None):
         'cids': cids,
         'costs': costs,
         'min_cost': costs[rids, cids].sum(),
+        'num_overlap': sum(tps.values()),
     }
 
 
@@ -680,6 +681,15 @@ def idtp(df, id_global_assignment, num_objects, idfn):
 
 
 simple_add_func.append(idtp)
+
+
+def num_overlap(df, id_global_assignment):
+    """ID measures: Number of true positives matches after global min-cost matching."""
+    del df  # unused
+    return id_global_assignment['num_overlap']
+
+
+simple_add_func.append(num_overlap)
 
 
 def idp(df, idtp, idfp):
@@ -761,6 +771,7 @@ def create():
     m.register(idfp)
     m.register(idfn)
     m.register(idtp)
+    m.register(num_overlap)
     m.register(idp, formatter='{:.1%}'.format)
     m.register(idr, formatter='{:.1%}'.format)
     m.register(idf1, formatter='{:.1%}'.format)
