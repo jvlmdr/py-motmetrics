@@ -16,12 +16,41 @@ from collections import OrderedDict
 import io
 import logging
 import os
-import pickle
 import sys
 from tempfile import NamedTemporaryFile
 import time
 
 import motmetrics as mm
+
+METRICS = [
+    # mm.metrics.motchallenge_metrics
+    'idf1',
+    'idp',
+    'idr',
+    'recall',
+    'precision',
+    'num_unique_objects',
+    'mostly_tracked',
+    'partially_tracked',
+    'mostly_lost',
+    'num_false_positives',
+    'num_misses',
+    'num_switches',
+    'num_fragmentations',
+    'mota',
+    'motp',
+    'num_transfer',
+    'num_ascend',
+    'num_migrate',
+    # For debug purposes:
+    'idtp',
+    'idfn',
+    'idfp',
+    'num_frames',
+    'num_detections',
+    'num_objects',
+    'num_predictions',
+]
 
 
 def parse_args():
@@ -178,14 +207,21 @@ def main():
 
     logging.info('Running metrics')
 
-    summary = mh.compute_many(accs, anas=analysis, names=names, metrics=mm.metrics.motchallenge_metrics, generate_overall=True)
+    summary = mh.compute_many(accs, anas=analysis, names=names, metrics=METRICS, generate_overall=True)
     print(mm.io.render_summary(summary, formatters=mh.formatters, namemap=mm.io.motchallenge_metric_names))
     logging.info('Completed')
 
     if args.output_file:
-        os.makedirs(os.path.dirname(args.output_file), exist_ok=True)
-        with open(args.output_file, 'wb') as f:
-            pickle.dump(summary, f)
+        summary.index.name = 'sequence'
+        _ensure_parent_dir_exists(args.output_file)
+        with open(args.output_file, 'w') as f:
+            summary.to_csv(f)
+
+
+def _ensure_parent_dir_exists(fname):
+    parent_dir = os.path.dirname(fname)
+    if parent_dir:
+        os.makedirs(parent_dir, exist_ok=True)
 
 
 if __name__ == '__main__':
