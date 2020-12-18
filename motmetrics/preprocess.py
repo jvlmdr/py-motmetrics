@@ -50,6 +50,17 @@ def preprocessResult(res, gt, inifile):
     seqIni = ConfigParser()
     seqIni.read(inifile, encoding='utf8')
     F = int(seqIni['Sequence']['seqLength'])
+
+    # Remove all predictions outside frames [1, ..., F].
+    # TODO: Move outside of preprocessResult(). Refactor use of inifile.
+    unique_frame_ids = res.index.unique('FrameId')
+    invalid_frame_ids = [t for t in unique_frame_ids if not (1 <= t and t <= F)]
+    if invalid_frame_ids:
+        logging.warning('Ignoring invalid frame IDs: seqLength %d, FrameId %s',
+                        seqLength, invalid_frame_ids)
+        frame_ids = res.index.get_level_values('FrameId')
+        res = res.loc[(1 <= frame_ids) & (frame_ids <= F)]
+
     todrop = []
     for t in range(1, F + 1):
         if t not in res.index or t not in gt.index:
