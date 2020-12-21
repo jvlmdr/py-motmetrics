@@ -43,13 +43,19 @@ def preprocessResult(res, gt, inifile):
         'reflection',        # 12
         'crowd',             # 13
     ]
-    distractors = ['person_on_vhcl', 'static_person', 'distractor', 'reflection']
-    is_distractor = {i + 1: x in distractors for i, x in enumerate(labels)}
-    for i in distractors:
-        is_distractor[i] = 1
     seqIni = ConfigParser()
     seqIni.read(inifile, encoding='utf8')
     F = int(seqIni['Sequence']['seqLength'])
+
+    # Determine distractor set from sequence name.
+    seq_name = seqIni['Sequence']['name']
+    if seq_name.startswith('MOT17'):
+        distractors = ['person_on_vhcl', 'static_person', 'distractor', 'reflection']
+    elif seq_name.startswith('MOT20'):
+        distractors = ['person_on_vhcl', 'static_person', 'distractor', 'reflection', 'non_mot_vhcl']
+    else:
+        raise ValueError('could not determine distractor set', seq_name)
+    is_distractor = {i + 1: x in distractors for i, x in enumerate(labels)}
 
     # Remove all predictions outside frames [1, ..., F].
     # TODO: Move outside of preprocessResult(). Refactor use of inifile.
