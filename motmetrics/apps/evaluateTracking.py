@@ -108,7 +108,6 @@ string in the seqmap.""", formatter_class=argparse.RawTextHelpFormatter)
 def compare_dataframes(gts, ts, vsflag='', iou=0.5):
     """Builds accumulator for each sequence."""
     accs = []
-    anas = []
     names = []
     for k, tsacc in ts.items():
         if k in gts:
@@ -117,16 +116,15 @@ def compare_dataframes(gts, ts, vsflag='', iou=0.5):
                 fd = io.open(vsflag + '/' + k + '.log', 'w')
             else:
                 fd = ''
-            acc, ana = mm.utils.CLEAR_MOT_M(gts[k][0], tsacc, gts[k][1], 'iou', distth=iou, vflag=fd)
+            acc, _ = mm.utils.CLEAR_MOT_M(gts[k][0], tsacc, gts[k][1], 'iou', distth=iou, vflag=fd)
             if fd != '':
                 fd.close()
             accs.append(acc)
-            anas.append(ana)
             names.append(k)
         else:
             logging.warning('No ground truth for %s, skipping.', k)
 
-    return accs, anas, names
+    return accs, names
 
 
 def parseSequences(seqmap):
@@ -204,12 +202,12 @@ def main():
 
     mh = mm.metrics.create()
     st = time.time()
-    accs, analysis, names = compare_dataframes(gt, ts, args.log, 1. - args.iou)
+    accs, names = compare_dataframes(gt, ts, args.log, 1. - args.iou)
     logging.info('adding frames: %.3f seconds.', time.time() - st)
 
     logging.info('Running metrics')
 
-    summary = mh.compute_many(accs, anas=analysis, names=names, metrics=METRICS, generate_overall=True)
+    summary = mh.compute_many(accs, names=names, metrics=METRICS, generate_overall=True)
     print(mm.io.render_summary(summary, formatters=mh.formatters, namemap=mm.io.motchallenge_metric_names))
     logging.info('Completed')
 
