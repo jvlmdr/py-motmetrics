@@ -164,4 +164,4 @@ def CLEAR_MOT_M(gt, dt, inifile, dist='iou', distfields=None, distth=0.5, includ
 
         acc.update(oids, hids, dists, frameid=fid, vf=vflag)
 
-    return acc, analysis
+    return acc, analysis, gt, dt

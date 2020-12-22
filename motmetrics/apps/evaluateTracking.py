@@ -111,6 +111,7 @@ def compare_dataframes(gts, ts, vsflag='', iou=0.5):
     """Builds accumulator for each sequence."""
     accs = []
     names = []
+    preprocs = []
     for k, tsacc in ts.items():
         if k in gts:
             logging.info('Evaluating %s...', k)
@@ -118,15 +119,17 @@ def compare_dataframes(gts, ts, vsflag='', iou=0.5):
                 fd = io.open(vsflag + '/' + k + '.log', 'w')
             else:
                 fd = ''
-            acc, _ = mm.utils.CLEAR_MOT_M(gts[k][0], tsacc, gts[k][1], 'iou', distth=iou, vflag=fd)
+            acc, _, _, ts_preproc = mm.utils.CLEAR_MOT_M(
+                    gts[k][0], tsacc, gts[k][1], 'iou', distth=iou, vflag=fd)
             if fd != '':
                 fd.close()
             accs.append(acc)
             names.append(k)
+            preprocs.append(ts_preproc)
         else:
             logging.warning('No ground truth for %s, skipping.', k)
 
-    return accs, names
+    return accs, names, preprocs
 
 
 def parseSequences(seqmap):
@@ -202,10 +205,26 @@ def main():
     gt = OrderedDict([(seqs[i], (mm.io.loadtxt(f, fmt=args.fmt), os.path.join(args.groundtruths, seqs[i], 'seqinfo.ini'))) for i, f in enumerate(gtfiles)])
     ts = OrderedDict([(seqs[i], mm.io.loadtxt(f, fmt=args.fmt)) for i, f in enumerate(tsfiles)])
 
+    if args.debug_dir:
+        os.makedirs(args.debug_dir, exist_ok=True)
+
     mh = mm.metrics.create()
     st = time.time()
-    accs, names = compare_dataframes(gt, ts, args.log, 1. - args.iou)
+    accs, names, preprocs = compare_dataframes(gt, ts, args.log, 1. - args.iou)
     logging.info('adding frames: %.3f seconds.', time.time() - st)
+
+    # Write preprocessed sequences to debug dir.
+    if args.debug_dir:
+        for name, ts_preproc in zip(names, preprocs):
+            clean = ts_preproc.copy()
+            clean[['X', 'Y']] += 1  # Restore removed in load_motchallenge.
+            xywh = ['X', 'Y', 'Width', 'Height']
+            clean[xywh] = clean[xywh].round(3) + 0  # Add zero to convert -0 to +0.
+            try:
+                with open(os.path.join(args.debug_dir, f'clean-{name}.csv'), 'w') as f:
+                    clean.to_csv(f, header=False, float_format='%g')
+            except IOError as ex:
+                logging.warning('io error: %s', ex)
 
     logging.info('Running metrics')
 
@@ -217,7 +236,6 @@ def main():
                 metrics=(METRICS + ['id_global_assignment', 'obj_frequencies', 'pred_frequencies']),
                 return_dataframe=False)
         if args.debug_dir:
-            os.makedirs(args.debug_dir, exist_ok=True)
             with open(os.path.join(args.debug_dir, f'id-{name}.csv'), 'w') as f:
                 _write_id_assignment(f, results_dict)
         results_per_seq[name] = results_dict
