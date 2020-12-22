@@ -21,6 +21,7 @@ from tempfile import NamedTemporaryFile
 import time
 
 import motmetrics as mm
+import pandas as pd
 
 METRICS = [
     # mm.metrics.motchallenge_metrics
@@ -102,6 +103,7 @@ string in the seqmap.""", formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('--skip', type=int, default=0, help='skip frames n means choosing one frame for every (n+1) frames')
     parser.add_argument('--iou', type=float, default=0.5, help='special IoU threshold requirement for small targets')
     parser.add_argument('--output_file', type=str, help='(optional) Write result of evalution to file.')
+    parser.add_argument('--debug_dir', type=str, help='(optional) Write debug to this dir.')
     return parser.parse_args()
 
 
@@ -207,7 +209,26 @@ def main():
 
     logging.info('Running metrics')
 
-    summary = mh.compute_many(accs, names=names, metrics=METRICS, generate_overall=True)
+    # summary = mh.compute_many(accs, names=names, metrics=METRICS, generate_overall=True)
+    results_per_seq = OrderedDict()
+    for name, acc in zip(names, accs):
+        results_dict = mh.compute(
+                acc, name=name,
+                metrics=(METRICS + ['id_global_assignment', 'obj_frequencies', 'pred_frequencies']),
+                return_dataframe=False)
+        if args.debug_dir:
+            os.makedirs(args.debug_dir, exist_ok=True)
+            with open(os.path.join(args.debug_dir, f'id-{name}.csv'), 'w') as f:
+                _write_id_assignment(f, results_dict)
+        results_per_seq[name] = results_dict
+    partials = [
+            pd.DataFrame(OrderedDict([(k, results_dict[k]) for k in METRICS]), index=[seq_name])
+            for seq_name, results_dict in results_per_seq.items()
+    ]
+    overall = mh.compute_overall(results_per_seq.values(), metrics=METRICS, name='OVERALL')
+    partials.append(overall)
+    summary = pd.concat(partials)
+
     print(mm.io.render_summary(summary, formatters=mh.formatters, namemap=mm.io.motchallenge_metric_names))
     logging.info('Completed')
 
@@ -222,6 +243,49 @@ def _ensure_parent_dir_exists(fname):
     parent_dir = os.path.dirname(fname)
     if parent_dir:
         os.makedirs(parent_dir, exist_ok=True)
+
+
+def _write_id_assignment(f, results_dict):
+    freq_gt = results_dict['obj_frequencies']
+    freq_pr = results_dict['pred_frequencies']
+    fn_matrix = results_dict['id_global_assignment']['fnmatrix']
+    fp_matrix = results_dict['id_global_assignment']['fpmatrix']
+    matrix_oids = results_dict['id_global_assignment']['oids']
+    matrix_hids = results_dict['id_global_assignment']['hids']
+    # Optimal solution.
+    opt_rids = results_dict['id_global_assignment']['rids']
+    opt_cids = results_dict['id_global_assignment']['cids']
+    opt_ij = set(zip(opt_rids, opt_cids))
+
+    # Iterate through all track pairs with non-zero overlap.
+    pairs = []
+    for i, oid in enumerate(matrix_oids):
+        for j, hid in enumerate(matrix_hids):
+            tp_from_fn = freq_gt[oid] - fn_matrix[i, j]
+            tp_from_fp = freq_pr[hid] - fp_matrix[i, j]
+            if not tp_from_fn == tp_from_fp:
+                raise ValueError('FN and FP do not agree',
+                                 (fn_matrix[i, j], freq_gt[oid]),
+                                 (fp_matrix[i, j], freq_pr[hid]))
+            tp = tp_from_fn
+            if tp == 0:
+                continue
+            pairs.append({
+                    'gt_id': oid,
+                    'pr_id': hid,
+                    'gt_len': freq_gt[oid],
+                    'pr_len': freq_pr[hid],
+                    'tp': tp,
+                    'opt': 1 if (i, j) in opt_ij else 0,
+            })
+
+    if not pairs:
+        # Leave file empty.
+        return
+    columns = ['gt_id', 'pr_id', 'gt_len', 'pr_len', 'tp', 'opt']
+    table = pd.DataFrame.from_records(pairs, columns=columns)
+    table = table.set_index(['gt_id', 'pr_id']).sort_index()
+    table.to_csv(f, float_format='%g', header=False)
 
 
 if __name__ == '__main__':

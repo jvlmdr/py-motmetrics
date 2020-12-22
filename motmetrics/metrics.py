@@ -650,6 +650,8 @@ def id_global_assignment(df, ana=None):
         'cids': cids,
         'costs': costs,
         'min_cost': costs[rids, cids].sum(),
+        'oids': oids,
+        'hids': hids,
         'num_overlap': sum(tps.values()),
     }
 
