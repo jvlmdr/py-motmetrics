@@ -217,7 +217,8 @@ def main():
     if args.debug_dir:
         for name, ts_preproc in zip(names, preprocs):
             clean = ts_preproc.copy()
-            clean[['X', 'Y']] += 1  # Restore removed in load_motchallenge.
+            clean = clean.sort_index()
+            clean[['X', 'Y']] += 1  # Restore offset from load_motchallenge.
             xywh = ['X', 'Y', 'Width', 'Height']
             clean[xywh] = clean[xywh].round(3) + 0  # Add zero to convert -0 to +0.
             try:
