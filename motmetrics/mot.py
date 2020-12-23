@@ -101,6 +101,7 @@ class MOTAccumulator(object):
         self._indices = None
         self.m = None
         self.res_m = None
+        self.obj_to_hyp = None
         self.last_occurrence = None
         self.last_match = None
         self.hypHistory = None
@@ -114,8 +115,9 @@ class MOTAccumulator(object):
 
         self._events = {field: [] for field in _EVENT_FIELDS}
         self._indices = {field: [] for field in _INDEX_FIELDS}
-        self.m = {}  # Pairings up to current timestamp
-        self.res_m = {}  # Result pairings up to now
+        self.m = {}  # Mapping from object to hypothesis. Used to count ID switches.
+        self.res_m = {}  # Mapping from hypothesis to object. Used to count ID transfers.
+        self.obj_to_hyp = {}  # Exclusive, bidirectional mapping. Used for preserving identities.
         self.last_occurrence = {}  # Tracks most recent occurance of object
         self.last_match = {}  # Tracks most recent match of object
         self.hypHistory = {}
@@ -220,14 +222,17 @@ class MOTAccumulator(object):
             self._append_to_indices(frameid, next(eid))
             self._append_to_events('RAW', np.nan, hid, np.nan)
 
+        # This will be used to update obj_to_hyp after making associations in this frame.
+        curr_pairs = []
+
         if oids.size * hids.size > 0:
             # 1. Try to re-establish tracks from previous correspondences
             for i in range(oids.shape[0]):
                 # No need to check oids_masked[i] here.
-                if oids[i] not in self.m:
+                if oids[i] not in self.obj_to_hyp:
                     continue
 
-                hprev = self.m[oids[i]]
+                hprev = self.obj_to_hyp[oids[i]]
                 j, = np.where(~hids_masked & (hids == hprev))
                 if j.shape[0] == 0:
                     continue
@@ -238,7 +243,9 @@ class MOTAccumulator(object):
                     h = hids[j]
                     oids_masked[i] = True
                     hids_masked[j] = True
-                    _update_bidir_assoc(self.m, self.res_m, o, h)
+                    self.m[o] = h
+                    self.res_m[h] = o
+                    curr_pairs.append((o, h))
 
                     self._append_to_indices(frameid, next(eid))
                     self._append_to_events('MATCH', oids[i], hids[j], dists[i, j])
@@ -291,7 +298,9 @@ class MOTAccumulator(object):
                 self._append_to_events(cat1, oids[i], hids[j], dists[i, j])
                 oids_masked[i] = True
                 hids_masked[j] = True
-                _update_bidir_assoc(self.m, self.res_m, o, h)
+                self.m[o] = h
+                self.res_m[h] = o
+                curr_pairs.append((o, h))
 
         # 3. All remaining objects are missed
         for o in oids[~oids_masked]:
@@ -311,6 +320,8 @@ class MOTAccumulator(object):
         for o in oids:
             self.last_occurrence[o] = frameid
 
+        # Update association and preserve exclusivity.
+        _update_bidir_assoc(self.obj_to_hyp, curr_pairs)
         return frameid
 
     @property
@@ -464,13 +475,31 @@ class MOTAccumulator(object):
             return r
 
 
-def _update_bidir_assoc(pi, pi_inv, x, y):
-    """Adds association x <-> y. Modifies pi, pi_inv in-place."""
-    prev_y = pi.get(x, None)
-    prev_x = pi_inv.get(y, None)
-    if prev_x is not None:
-        del pi[prev_x]
-    if prev_y is not None:
-        del pi_inv[prev_y]
-    pi[x] = y
-    pi_inv[y] = x
+def _update_bidir_assoc(pi, new_ijs):
+    """Updates bidirectional map with associations (i, j).
+
+    Args:
+        pi: Dict that maps i to j.
+        new_ijs: List of (i, j) pairs.
+
+    Returns:
+        Dict that maps i to j.
+    """
+    assert _one_to_one(new_ijs)
+    new_pi = dict(new_ijs)
+    new_pi_inv = {j: i for i, j in new_pi.items()}
+    # Exclude pairs where either element has a new match.
+    keep_ijs = [(i, j) for i, j in pi.items() if i not in new_pi and j not in new_pi_inv]
+    ijs = keep_ijs + list(new_ijs)
+    assert _one_to_one(ijs)
+    return dict(ijs)
+
+
+def _one_to_one(ijs):
+    ijs = set(ijs)  # Permit duplicate pairs.
+    return (_all_unique([i for i, _ in ijs]) and
+            _all_unique([j for _, j in ijs]))
+
+
+def _all_unique(xs):
+    return len(set(xs)) == len(xs)
