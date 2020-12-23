@@ -231,14 +231,14 @@ class MOTAccumulator(object):
                 j, = np.where(~hids_masked & (hids == hprev))
                 if j.shape[0] == 0:
                     continue
-                j = j[0]
+                j, = j
 
                 if np.isfinite(dists[i, j]):
                     o = oids[i]
                     h = hids[j]
                     oids_masked[i] = True
                     hids_masked[j] = True
-                    self.m[oids[i]] = hids[j]
+                    _update_bidir_assoc(self.m, self.res_m, o, h)
 
                     self._append_to_indices(frameid, next(eid))
                     self._append_to_events('MATCH', oids[i], hids[j], dists[i, j])
@@ -291,8 +291,7 @@ class MOTAccumulator(object):
                 self._append_to_events(cat1, oids[i], hids[j], dists[i, j])
                 oids_masked[i] = True
                 hids_masked[j] = True
-                self.m[o] = h
-                self.res_m[h] = o
+                _update_bidir_assoc(self.m, self.res_m, o, h)
 
         # 3. All remaining objects are missed
         for o in oids[~oids_masked]:
@@ -463,3 +462,15 @@ class MOTAccumulator(object):
             return r, mapping_infos
         else:
             return r
+
+
+def _update_bidir_assoc(pi, pi_inv, x, y):
+    """Adds association x <-> y. Modifies pi, pi_inv in-place."""
+    prev_y = pi.get(x, None)
+    prev_x = pi_inv.get(y, None)
+    if prev_x is not None:
+        del pi[prev_x]
+    if prev_y is not None:
+        del pi_inv[prev_y]
+    pi[x] = y
+    pi_inv[y] = x
