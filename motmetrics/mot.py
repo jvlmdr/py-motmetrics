@@ -321,7 +321,7 @@ class MOTAccumulator(object):
             self.last_occurrence[o] = frameid
 
         # Update association and preserve exclusivity.
-        _update_bidir_assoc(self.obj_to_hyp, curr_pairs)
+        self.obj_to_hyp = _update_bidir_assoc(self.obj_to_hyp, curr_pairs)
         return frameid
 
     @property
